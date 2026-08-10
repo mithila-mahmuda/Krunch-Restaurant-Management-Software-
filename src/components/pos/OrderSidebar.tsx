@@ -168,21 +168,34 @@ export function OrderSidebar() {
 }
 
 function TicketContextBar() {
+  const customerId = usePosStore((state) => state.customerId);
   const customerName = usePosStore((state) => state.customerName);
   const tableLabel = usePosStore((state) => state.tableLabel);
   const diningOption = usePosStore((state) => state.diningOption);
+  const customers = useCustomerStore((state) => state.customers);
+
+  const guestNotes = customerId
+    ? customers.find((customer) => customer.id === customerId)?.notes?.trim()
+    : undefined;
 
   if (!customerName && !tableLabel) return null;
 
   return (
-    <div className="shrink-0 truncate border-b border-slate-100 bg-[var(--pos-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--pos-accent)]">
-      {[
-        customerName ? `Guest: ${customerName}` : null,
-        tableLabel ? `Table ${tableLabel}` : null,
-        diningOptionLabel(diningOption),
-      ]
-        .filter(Boolean)
-        .join(" · ")}
+    <div className="shrink-0 border-b border-slate-100 bg-[var(--pos-accent-soft)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--pos-accent)]">
+      <p className="truncate">
+        {[
+          customerName ? `Guest: ${customerName}` : null,
+          tableLabel ? `Table ${tableLabel}` : null,
+          diningOptionLabel(diningOption),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      {guestNotes ? (
+        <p className="mt-0.5 truncate font-medium text-amber-800">
+          Note: {guestNotes}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -291,11 +304,16 @@ function CustomersQuickPanel() {
                     : "hover:bg-slate-50"
                 }`}
               >
-                <span>
+                <span className="min-w-0">
                   <span className="block font-semibold">{customer.name}</span>
-                  <span className="text-xs text-slate-500">
+                  <span className="block text-xs text-slate-500">
                     {customer.loyaltyPoints} pts · {customer.phone}
                   </span>
+                  {customer.notes?.trim() ? (
+                    <span className="mt-0.5 block truncate text-xs text-amber-800">
+                      {customer.notes.trim()}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="text-xs font-bold uppercase">
                   {attached ? "Linked" : "Attach"}

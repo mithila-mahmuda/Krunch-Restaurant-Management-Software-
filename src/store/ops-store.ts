@@ -475,6 +475,25 @@ function kitchenNotesFromLines(lines: OrderLine[]): string | undefined {
   return notes || undefined;
 }
 
+/** Line notes plus guest profile notes (allergies / prefs) for the KDS. */
+function resolveKitchenNotes(
+  customerId: string | null,
+  lines: OrderLine[],
+): string | undefined {
+  const guestNotes = customerId
+    ? useCustomerStore
+        .getState()
+        .customers.find((customer) => customer.id === customerId)
+        ?.notes?.trim()
+    : undefined;
+  const lineNotes = kitchenNotesFromLines(lines);
+  const parts = [
+    guestNotes ? `Guest: ${guestNotes}` : null,
+    lineNotes,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join("; ") : undefined;
+}
+
 /**
  * Payment and kitchen are independent: paying must not mark food ready.
  * Fire to KDS as queued when the ticket has never been kitchened; preserve
@@ -793,7 +812,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
     const state = get();
     const number = `#${state.nextOrderNumber}`;
     const server = useAuthStore.getState().user?.name ?? "Staff";
-    const notes = kitchenNotesFromLines(input.lines);
+    const notes = resolveKitchenNotes(input.customerId, input.lines);
     const location = activeLocationStamp();
 
     const order: OpsOrder = {
@@ -865,7 +884,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
       ? state.orders.find((order) => order.id === input.existingOrderId)
       : undefined;
     const kitchen = resolveKitchenOnPayment(existing);
-    const notes = kitchenNotesFromLines(input.lines);
+    const notes = resolveKitchenNotes(input.customerId, input.lines);
     const location = activeLocationStamp();
 
     const stockBranchId = existing?.branchId ?? location.branchId;
@@ -984,7 +1003,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
     }
 
     const totals = computeTotals(input.lines, input.serviceEnabled);
-    const notes = kitchenNotesFromLines(input.lines);
+    const notes = resolveKitchenNotes(input.customerId, input.lines);
     const stockBranchId =
       existing.branchId ?? useSettingsStore.getState().activeBranchId;
     const lines = input.lines.map((line) => ({ ...line }));

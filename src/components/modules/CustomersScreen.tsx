@@ -9,15 +9,51 @@ import {
 } from "@/components/customers/CustomerFormFields";
 import { ModuleShell } from "@/components/modules/ModuleShell";
 import { PosDialog } from "@/components/pos/PosDialog";
+import {
+  diningOptionLabel,
+  formatClockTime,
+  formatMoney,
+} from "@/lib/format";
+import type { OpsOrder } from "@/lib/types";
 import { useCustomerStore } from "@/store/customer-store";
+import { useOpsStore } from "@/store/ops-store";
 import { usePosStore } from "@/store/pos-store";
+import { useSettingsStore } from "@/store/settings-store";
 
 const PAGE_SIZE = 10;
+const HISTORY_LIMIT = 6;
+
+function orderTimestamp(order: OpsOrder): string {
+  return order.paidAt ?? order.placedAt;
+}
+
+function formatOrderWhen(value: string): string {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return formatClockTime(value);
+  const date = new Date(parsed);
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) {
+    return formatClockTime(value);
+  }
+  return `${date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  })} ${formatClockTime(value)}`;
+}
+
+function orderItemsSummary(order: OpsOrder): string {
+  return order.lines
+    .slice(0, 3)
+    .map((line) => `${line.quantity}× ${line.name}`)
+    .join(", ");
+}
 
 export function CustomersScreen() {
   const customers = useCustomerStore((state) => state.customers);
   const addCustomer = useCustomerStore((state) => state.addCustomer);
   const updateCustomer = useCustomerStore((state) => state.updateCustomer);
+  const orders = useOpsStore((state) => state.orders);
+  const showDemoSeed = useSettingsStore((state) => state.showDemoSeed);
   const attachCustomer = usePosStore((state) => state.attachCustomer);
   const attachedId = usePosStore((state) => state.customerId);
 
@@ -54,6 +90,26 @@ export function CustomersScreen() {
     filtered.find((customer) => customer.id === selectedId) ??
     filtered[0] ??
     null;
+
+  const recentOrders = useMemo(() => {
+    if (!selected) return [];
+    return orders
+      .filter(
+        (order) =>
+          !order.held &&
+          order.status !== "void" &&
+          (showDemoSeed || order.source === "till") &&
+          (order.customerId === selected.id ||
+            (!order.customerId &&
+              order.customerName?.toLowerCase() ===
+                selected.name.toLowerCase())),
+      )
+      .sort(
+        (a, b) =>
+          Date.parse(orderTimestamp(b)) - Date.parse(orderTimestamp(a)),
+      )
+      .slice(0, HISTORY_LIMIT);
+  }, [orders, selected, showDemoSeed]);
 
   const isEditing = editingId !== null;
   const phoneLabel = selected && !isPlaceholderPhone(selected.phone)
@@ -247,6 +303,58 @@ export function CustomersScreen() {
                   {selected.notes}
                 </p>
               ) : null}
+
+              <div className="mt-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Recent orders
+                </p>
+                {recentOrders.length > 0 ? (
+                  <ul className="mt-2 space-y-2">
+                    {recentOrders.map((order) => (
+                      <li
+                        key={order.id}
+                        className="rounded-md border border-slate-200 px-3 py-2.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold">
+                              {order.number}
+                              <span className="ml-1.5 text-xs font-medium text-slate-500">
+                                {order.status === "paid" ? "Paid" : "Open"}
+                              </span>
+                            </p>
+                            <p className="mt-0.5 truncate text-xs text-slate-500">
+                              {formatOrderWhen(orderTimestamp(order))}
+                              {" · "}
+                              {diningOptionLabel(order.diningOption)}
+                              {order.tableLabel
+                                ? ` · Table ${order.tableLabel}`
+                                : ""}
+                            </p>
+                          </div>
+                          <p className="shrink-0 text-sm font-bold tabular-nums">
+                            {formatMoney(order.total)}
+                          </p>
+                        </div>
+                        {order.lines.length > 0 ? (
+                          <p className="mt-1 truncate text-xs text-slate-600">
+                            {orderItemsSummary(order)}
+                            {order.lines.length > 3
+                              ? ` +${order.lines.length - 3} more`
+                              : ""}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 rounded-md border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
+                    No orders linked yet. Attach this guest on the till to
+                    start a history.
+                  </p>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() =>
