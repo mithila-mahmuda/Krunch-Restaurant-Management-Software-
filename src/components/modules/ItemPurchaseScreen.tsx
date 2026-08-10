@@ -20,7 +20,6 @@ import {
   accessibleBranches,
   hasAllBranchAccess,
 } from "@/lib/branch-access";
-import { formatMoney } from "@/lib/format";
 import type { PurchaseAttachment } from "@/lib/purchases";
 import { can } from "@/lib/permissions";
 import { useAuthStore } from "@/store/auth-store";
@@ -335,12 +334,12 @@ function purchasePayStatus(paid: number, due: number, total: number): {
   }
   if (paid <= 0) {
     return {
-      label: `Due ${formatMoney(due)}`,
+      label: `Due ${formatAmountField(due) || "0"}`,
       className: "bg-rose-100 text-rose-800",
     };
   }
   return {
-    label: `Due ${formatMoney(due)}`,
+    label: `Due ${formatAmountField(due) || "0"}`,
     className: "bg-amber-100 text-amber-900",
   };
 }
@@ -841,10 +840,16 @@ export function ItemPurchaseScreen() {
   }
 
   const headerActionClass =
-    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40";
+    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40";
 
   const lineFieldClass =
-    "no-spinner min-h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-800 outline-none transition hover:border-slate-300 focus:border-[var(--pos-accent)] focus:ring-2 focus:ring-[var(--pos-accent)]/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60";
+    "no-spinner min-h-7 border-0 bg-transparent px-1.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:bg-slate-50/80 disabled:cursor-not-allowed disabled:opacity-60";
+  const nameFieldClass = `${lineFieldClass} w-full px-2`;
+  const amountFieldClass = `${lineFieldClass} w-[5.5rem]`;
+  const qtyFieldClass = `${lineFieldClass} w-[3.75rem] text-center`;
+
+  const tableHeadClass =
+    "border-b border-slate-200 bg-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-600";
 
   return (
     <ModuleShell
@@ -958,444 +963,449 @@ export function ItemPurchaseScreen() {
             </div>
           ) : null}
 
-          <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="space-y-3 p-2 sm:p-3">
-              {drafts.map((draft) => {
-                const purchaseTotal = roundMoney(
-                  draft.lines.reduce(
-                    (sum, line) => sum + lineTotalValue(line),
-                    0,
-                  ),
-                );
-                const paidAmount = draft.paidFollowsTotal
-                  ? purchaseTotal
-                  : (() => {
+          <section className="mb-6 space-y-4">
+            {drafts.map((draft) => {
+              const purchaseTotal = roundMoney(
+                draft.lines.reduce(
+                  (sum, line) => sum + lineTotalValue(line),
+                  0,
+                ),
+              );
+              const paidAmount = draft.paidFollowsTotal
+                ? purchaseTotal
+                : (() => {
                     const paid = parseAmount(draft.paidDraft);
                     if (!(paid >= 0)) return 0;
                     return roundMoney(paid);
                   })();
-                const paidFieldValue = draft.paidFollowsTotal
-                  ? formatAmountField(purchaseTotal) || "0"
-                  : draft.paidDraft;
-                const dueAmount = roundMoney(purchaseTotal - paidAmount);
-                const isSaved = Boolean(draft.savedPurchaseId);
-                const fieldsLocked = !canPurchase || isSaved;
+              const paidFieldValue = draft.paidFollowsTotal
+                ? formatAmountField(purchaseTotal) || "0"
+                : draft.paidDraft;
+              const dueAmount = roundMoney(purchaseTotal - paidAmount);
+              const isSaved = Boolean(draft.savedPurchaseId);
+              const fieldsLocked = !canPurchase || isSaved;
 
-                return (
-                  <div
-                    key={draft.key}
-                    className={`overflow-hidden rounded-lg border ${isSaved
-                        ? "border-emerald-200 bg-emerald-50/50"
-                        : "border-slate-200 bg-white"
-                      }`}
-                  >
-                    <div
-                      className={`flex flex-col gap-2 border-b px-2.5 py-2 lg:flex-row lg:items-center lg:justify-between ${
-                        isSaved
-                          ? "border-emerald-200 bg-emerald-50"
-                          : "border-slate-200 bg-[var(--pos-accent-soft)]"
-                      }`}
+              return (
+                <div
+                  key={draft.key}
+                  className={`overflow-hidden rounded-lg border bg-white ${
+                    isSaved ? "border-emerald-200" : "border-slate-200"
+                  }`}
+                >
+                  {/* Supplier */}
+                  <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 px-2.5 py-1.5">
+                    {isSaved ? (
+                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                        Saved
+                      </span>
+                    ) : null}
+                    <div className="w-full min-w-0 max-w-[12rem] sm:max-w-[14rem]">
+                      <Select
+                        compact
+                        aria-label="Supplier name"
+                        value={draft.supplierId}
+                        options={supplierOptions}
+                        onChange={(value) => {
+                          updateDraft(draft.key, (row) => ({
+                            ...row,
+                            supplierId: value,
+                            error: null,
+                          }));
+                          setSuccessMessage(null);
+                        }}
+                        disabled={fieldsLocked}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openNoteDialog(draft)}
+                      disabled={fieldsLocked}
+                      aria-label="Add note"
+                      title={draft.note ? "Edit note" : "Add note"}
+                      className={`${headerActionClass} ${draft.note ? "border-[var(--pos-accent)] text-[var(--pos-accent)]" : ""}`}
                     >
-                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-                        {isSaved ? (
-                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                            Saved
-                          </span>
-                        ) : null}
-                        <div className="min-w-[11rem] flex-1 sm:max-w-[16rem]">
-                          <Select
-                            compact
-                            aria-label="Supplier name"
-                            value={draft.supplierId}
-                            options={supplierOptions}
-                            onChange={(value) => {
-                              updateDraft(draft.key, (row) => ({
-                                ...row,
-                                supplierId: value,
-                                error: null,
-                              }));
-                              setSuccessMessage(null);
-                            }}
-                            disabled={fieldsLocked}
-                          />
-                        </div>
+                      <FileText className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAttachDraftKey(draft.key);
+                        attachmentInputRef.current?.click();
+                      }}
+                      disabled={fieldsLocked}
+                      aria-label="Attach file"
+                      title="Attach file"
+                      className={`${headerActionClass} ${draft.attachments.length > 0 ? "border-[var(--pos-accent)] text-[var(--pos-accent)]" : ""}`}
+                    >
+                      <Paperclip className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeDraft(draft.key)}
+                      disabled={!canPurchase}
+                      aria-label={
+                        isSaved
+                          ? "Dismiss saved purchase from this list"
+                          : "Remove purchase entry"
+                      }
+                      title={
+                        isSaved
+                          ? "Dismiss from this list"
+                          : drafts.length > 1
+                            ? "Remove this supplier purchase"
+                            : "Clear this purchase entry"
+                      }
+                      className={`${headerActionClass} hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
 
+                  {(draft.note || draft.attachments.length > 0) && (
+                    <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-3 py-2 text-xs text-slate-600">
+                      {draft.note ? (
                         <button
                           type="button"
                           onClick={() => openNoteDialog(draft)}
-                          disabled={fieldsLocked}
-                          aria-label="Add note"
-                          title={draft.note ? "Edit note" : "Add note"}
-                          className={`${headerActionClass} ${draft.note ? "border-[var(--pos-accent)] text-[var(--pos-accent)]" : ""}`}
+                          className="rounded-md bg-slate-50 px-2 py-0.5 font-medium text-slate-700 hover:bg-slate-100"
                         >
-                          <FileText className="h-3.5 w-3.5" />
+                          Note:{" "}
+                          {draft.note.length > 48
+                            ? `${draft.note.slice(0, 48)}…`
+                            : draft.note}
                         </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAttachDraftKey(draft.key);
-                            attachmentInputRef.current?.click();
-                          }}
-                          disabled={fieldsLocked}
-                          aria-label="Attach file"
-                          title="Attach file"
-                          className={`${headerActionClass} ${draft.attachments.length > 0 ? "border-[var(--pos-accent)] text-[var(--pos-accent)]" : ""}`}
+                      ) : null}
+                      {draft.attachments.map((file) => (
+                        <span
+                          key={file.id}
+                          className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 font-medium text-slate-700"
                         >
-                          <Paperclip className="h-3.5 w-3.5" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => removeDraft(draft.key)}
-                          disabled={!canPurchase}
-                          aria-label={
-                            isSaved
-                              ? "Dismiss saved purchase from this list"
-                              : "Remove purchase entry"
-                          }
-                          title={
-                            isSaved
-                              ? "Dismiss from this list"
-                              : drafts.length > 1
-                                ? "Remove this supplier purchase"
-                                : "Clear this purchase entry"
-                          }
-                          className={`${headerActionClass} hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="flex flex-wrap items-stretch gap-1.5">
-                        <div className="inline-flex h-8 min-w-[6.25rem] items-center justify-between gap-1.5 rounded border border-slate-200 bg-white px-2 text-xs shadow-sm">
-                          <span className="text-slate-500">Total</span>
-                          <span className="font-semibold tabular-nums text-slate-800">
-                            {purchaseTotal}
-                          </span>
-                        </div>
-
-                        <label className="inline-flex h-8 min-w-[6.25rem] items-center justify-between gap-1.5 rounded border border-slate-200 bg-white px-2 text-xs shadow-sm">
-                          <span className="text-slate-500">Paid</span>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            step="any"
-                            value={paidFieldValue}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              updateDraft(draft.key, (row) => ({
-                                ...row,
-                                paidFollowsTotal: false,
-                                paidDraft: value,
-                                error: null,
-                              }));
-                              setSuccessMessage(null);
-                            }}
-                            disabled={fieldsLocked}
-                            aria-label="Paid amount"
-                            className="no-spinner w-14 border-0 bg-transparent p-0 text-right font-semibold tabular-nums text-slate-800 outline-none disabled:opacity-60"
-                          />
-                        </label>
-
-                        <div className="inline-flex h-8 min-w-[6.25rem] items-center justify-between gap-1.5 rounded border border-slate-200 bg-white px-2 text-xs shadow-sm">
-                          <span className="text-slate-500">Due</span>
-                          <span
-                            className={`font-semibold tabular-nums ${dueAmount < 0
-                                ? "text-[var(--pos-accent)]"
-                                : dueAmount > 0
-                                  ? "text-rose-600"
-                                  : "text-emerald-600"
-                              }`}
-                          >
-                            {dueAmount}
-                          </span>
-                        </div>
-                      </div>
+                          <Paperclip className="h-3 w-3" />
+                          {file.name}
+                          {!isSaved ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateDraft(draft.key, (row) => ({
+                                  ...row,
+                                  attachments: row.attachments.filter(
+                                    (item) => item.id !== file.id,
+                                  ),
+                                }));
+                              }}
+                              aria-label={`Remove ${file.name}`}
+                              className="ml-0.5 text-slate-400 hover:text-rose-600"
+                            >
+                              ×
+                            </button>
+                          ) : null}
+                        </span>
+                      ))}
                     </div>
+                  )}
 
-                    {(draft.note || draft.attachments.length > 0) && (
-                      <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-2.5 py-1.5 text-xs text-slate-600">
-                        {draft.note ? (
-                          <button
-                            type="button"
-                            onClick={() => openNoteDialog(draft)}
-                            className="rounded-full bg-white px-2 py-0.5 font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[32rem] border-collapse text-sm">
+                      <thead>
+                        <tr className={tableHeadClass}>
+                          <th className="w-full border-r border-slate-200 px-3 py-1.5 text-left font-semibold">
+                            Item name
+                          </th>
+                          <th className="w-0 whitespace-nowrap border-r border-slate-200 px-2 py-1.5 text-center font-semibold">
+                            Total
+                          </th>
+                          <th className="w-0 whitespace-nowrap border-r border-slate-200 px-2 py-1.5 text-center font-semibold">
+                            Qty
+                          </th>
+                          <th className="w-0 whitespace-nowrap border-r border-slate-200 px-1 py-1.5 text-center font-semibold">
+                            Unit
+                          </th>
+                          <th className="w-0 whitespace-nowrap border-r border-slate-200 px-2 py-1.5 text-center font-semibold">
+                            Rate
+                          </th>
+                          <th className="w-10 px-1 py-1.5 text-center">
+                            <span className="sr-only">Remove</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draft.lines.map((line) => (
+                          <tr
+                            key={line.key}
+                            className="border-b border-slate-200 last:border-b-0"
                           >
-                            Note:{" "}
-                            {draft.note.length > 48
-                              ? `${draft.note.slice(0, 48)}…`
-                              : draft.note}
-                          </button>
-                        ) : null}
-                        {draft.attachments.map((file) => (
-                          <span
-                            key={file.id}
-                            className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 font-medium text-slate-700 shadow-sm"
-                          >
-                            <Paperclip className="h-3 w-3" />
-                            {file.name}
-                            {!isSaved ? (
+                            <td className="w-full border-r border-slate-200 px-1 py-0">
+                              <input
+                                type="text"
+                                value={line.name}
+                                onChange={(event) => {
+                                  updateDraft(draft.key, (row) => ({
+                                    ...row,
+                                    error: null,
+                                    lines: row.lines.map((item) =>
+                                      item.key === line.key
+                                        ? applyLinePatch(item, {
+                                            name: event.target.value,
+                                          })
+                                        : item,
+                                    ),
+                                  }));
+                                  setSuccessMessage(null);
+                                }}
+                                placeholder="Item name"
+                                disabled={fieldsLocked}
+                                autoComplete="off"
+                                className={nameFieldClass}
+                              />
+                            </td>
+                            <td className="w-0 whitespace-nowrap border-r border-slate-200 px-0.5 py-0">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                step="any"
+                                value={line.total}
+                                onChange={(event) => {
+                                  updateDraft(draft.key, (row) => ({
+                                    ...row,
+                                    error: null,
+                                    lines: row.lines.map((item) =>
+                                      item.key === line.key
+                                        ? applyLinePatch(item, {
+                                            total: event.target.value,
+                                          })
+                                        : item,
+                                    ),
+                                  }));
+                                  setSuccessMessage(null);
+                                }}
+                                disabled={fieldsLocked}
+                                aria-label="Line total"
+                                className={`${amountFieldClass} text-right`}
+                              />
+                            </td>
+                            <td className="w-0 whitespace-nowrap border-r border-slate-200 px-0.5 py-0">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                step="any"
+                                value={line.quantity}
+                                onChange={(event) => {
+                                  updateDraft(draft.key, (row) => ({
+                                    ...row,
+                                    error: null,
+                                    lines: row.lines.map((item) =>
+                                      item.key === line.key
+                                        ? applyLinePatch(item, {
+                                            quantity: event.target.value,
+                                          })
+                                        : item,
+                                    ),
+                                  }));
+                                  setSuccessMessage(null);
+                                }}
+                                disabled={fieldsLocked}
+                                className={qtyFieldClass}
+                              />
+                            </td>
+                            <td className="w-0 whitespace-nowrap border-r border-slate-200 px-0.5 py-0">
+                              <Select
+                                aria-label="Unit"
+                                bare
+                                className="w-[3.75rem]"
+                                value={line.unit}
+                                options={unitOptionsFor(line.unit)}
+                                onChange={(value) => {
+                                  updateDraft(draft.key, (row) => ({
+                                    ...row,
+                                    error: null,
+                                    lines: row.lines.map((item) =>
+                                      item.key === line.key
+                                        ? applyLinePatch(item, {
+                                            unit: value,
+                                          })
+                                        : item,
+                                    ),
+                                  }));
+                                  setSuccessMessage(null);
+                                }}
+                                disabled={fieldsLocked}
+                              />
+                            </td>
+                            <td className="w-0 whitespace-nowrap border-r border-slate-200 px-0.5 py-0">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                step="any"
+                                value={line.rate}
+                                onChange={(event) => {
+                                  updateDraft(draft.key, (row) => ({
+                                    ...row,
+                                    error: null,
+                                    lines: row.lines.map((item) =>
+                                      item.key === line.key
+                                        ? applyLinePatch(item, {
+                                            rate: event.target.value,
+                                          })
+                                        : item,
+                                    ),
+                                  }));
+                                  setSuccessMessage(null);
+                                }}
+                                disabled={fieldsLocked}
+                                className={`${amountFieldClass} text-right`}
+                              />
+                            </td>
+                            <td className="px-1 py-0 text-center">
                               <button
                                 type="button"
                                 onClick={() => {
                                   updateDraft(draft.key, (row) => ({
                                     ...row,
-                                    attachments: row.attachments.filter(
-                                      (item) => item.id !== file.id,
-                                    ),
+                                    error: null,
+                                    lines:
+                                      row.lines.length <= 1
+                                        ? [newDraftLine()]
+                                        : row.lines.filter(
+                                            (item) => item.key !== line.key,
+                                          ),
                                   }));
                                 }}
-                                aria-label={`Remove ${file.name}`}
-                                className="ml-0.5 text-slate-400 hover:text-rose-600"
+                                disabled={fieldsLocked}
+                                aria-label="Remove line"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:bg-slate-50 hover:text-rose-600 disabled:opacity-40"
                               >
-                                ×
+                                <Trash2 className="h-3.5 w-3.5" />
                               </button>
-                            ) : null}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="overflow-x-auto bg-white">
-                      <table className="w-full min-w-[36rem] border-collapse text-sm">
-                        <thead>
-                          <tr className="bg-[var(--pos-accent-soft)] text-left text-[10px] font-bold uppercase tracking-wide text-[var(--pos-header)]">
-                            <th className="px-2 py-1.5 text-left">Name</th>
-                            <th className="w-20 px-1.5 py-1.5 text-center">Qty</th>
-                            <th className="w-16 px-1 py-1.5 text-center">Unit</th>
-                            <th className="w-28 px-1.5 py-1.5 text-center">Rate</th>
-                            <th className="w-28 px-1.5 py-1.5 text-center">
-                              Total
-                            </th>
-                            <th className="w-10 px-1 py-1.5 text-center">
-                              <span className="sr-only">Remove</span>
-                            </th>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {draft.lines.map((line) => (
-                            <tr
-                              key={line.key}
-                              className="border-t border-slate-100"
-                            >
-                              <td className="px-2 py-1">
-                                <input
-                                  type="text"
-                                  value={line.name}
-                                  onChange={(event) => {
-                                    updateDraft(draft.key, (row) => ({
-                                      ...row,
-                                      error: null,
-                                      lines: row.lines.map((item) =>
-                                        item.key === line.key
-                                          ? applyLinePatch(item, {
-                                            name: event.target.value,
-                                          })
-                                          : item,
-                                      ),
-                                    }));
-                                    setSuccessMessage(null);
-                                  }}
-                                  placeholder="Item name"
-                                  disabled={fieldsLocked}
-                                  autoComplete="off"
-                                  className={lineFieldClass}
-                                />
-                              </td>
-                              <td className="w-20 px-1.5 py-1">
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  min={0}
-                                  step="any"
-                                  value={line.quantity}
-                                  onChange={(event) => {
-                                    updateDraft(draft.key, (row) => ({
-                                      ...row,
-                                      error: null,
-                                      lines: row.lines.map((item) =>
-                                        item.key === line.key
-                                          ? applyLinePatch(item, {
-                                            quantity: event.target.value,
-                                          })
-                                          : item,
-                                      ),
-                                    }));
-                                    setSuccessMessage(null);
-                                  }}
-                                  disabled={fieldsLocked}
-                                  className={`${lineFieldClass} text-center`}
-                                />
-                              </td>
-                              <td className="w-16 px-1 py-1">
-                                <Select
-                                  aria-label="Unit"
-                                  compact
-                                  value={line.unit}
-                                  options={unitOptionsFor(line.unit)}
-                                  onChange={(value) => {
-                                    updateDraft(draft.key, (row) => ({
-                                      ...row,
-                                      error: null,
-                                      lines: row.lines.map((item) =>
-                                        item.key === line.key
-                                          ? applyLinePatch(item, {
-                                            unit: value,
-                                          })
-                                          : item,
-                                      ),
-                                    }));
-                                    setSuccessMessage(null);
-                                  }}
-                                  disabled={fieldsLocked}
-                                />
-                              </td>
-                              <td className="w-28 px-1.5 py-1">
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  min={0}
-                                  step="any"
-                                  value={line.rate}
-                                  onChange={(event) => {
-                                    updateDraft(draft.key, (row) => ({
-                                      ...row,
-                                      error: null,
-                                      lines: row.lines.map((item) =>
-                                        item.key === line.key
-                                          ? applyLinePatch(item, {
-                                            rate: event.target.value,
-                                          })
-                                          : item,
-                                      ),
-                                    }));
-                                    setSuccessMessage(null);
-                                  }}
-                                  disabled={fieldsLocked}
-                                  className={`${lineFieldClass} text-right`}
-                                />
-                              </td>
-                              <td className="w-28 px-1.5 py-1">
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  min={0}
-                                  step="any"
-                                  value={line.total}
-                                  onChange={(event) => {
-                                    updateDraft(draft.key, (row) => ({
-                                      ...row,
-                                      error: null,
-                                      lines: row.lines.map((item) =>
-                                        item.key === line.key
-                                          ? applyLinePatch(item, {
-                                            total: event.target.value,
-                                          })
-                                          : item,
-                                      ),
-                                    }));
-                                    setSuccessMessage(null);
-                                  }}
-                                  disabled={fieldsLocked}
-                                  aria-label="Line total"
-                                  className={`${lineFieldClass} text-right`}
-                                />
-                              </td>
-                              <td className="px-1 py-1 text-center">
+                        ))}
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="border-t border-slate-200 px-2 py-1"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              {!isSaved ? (
                                 <button
                                   type="button"
                                   onClick={() => {
                                     updateDraft(draft.key, (row) => ({
                                       ...row,
                                       error: null,
-                                      lines:
-                                        row.lines.length <= 1
-                                          ? [newDraftLine()]
-                                          : row.lines.filter(
-                                              (item) => item.key !== line.key,
-                                            ),
+                                      lines: [...row.lines, newDraftLine()],
                                     }));
+                                    setSuccessMessage(null);
                                   }}
-                                  disabled={fieldsLocked}
-                                  aria-label="Remove line"
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+                                  disabled={!canPurchase}
+                                  className="inline-flex h-7 items-center gap-1 text-xs font-semibold text-slate-500 hover:text-[var(--pos-header)] disabled:opacity-50"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Plus className="h-3.5 w-3.5" />
+                                  Add item
                                 </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                              ) : (
+                                <span />
+                              )}
 
-                    {!isSaved ? (
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-white px-2.5 py-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            updateDraft(draft.key, (row) => ({
-                              ...row,
-                              error: null,
-                              lines: [...row.lines, newDraftLine()],
-                            }));
-                            setSuccessMessage(null);
-                          }}
-                          disabled={!canPurchase}
-                          className="inline-flex h-8 items-center justify-center gap-1 rounded border border-[var(--pos-header)] bg-[var(--pos-header)] px-2.5 text-xs font-semibold text-pos-on-header hover:brightness-110 disabled:opacity-50"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Item
-                        </button>
-                      </div>
-                    ) : null}
-
-                    {draft.error ? (
-                      <p className="border-t border-rose-100 bg-rose-50 px-2.5 py-2 text-sm text-rose-800">
-                        {draft.error}
-                      </p>
-                    ) : null}
+                              <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-slate-600 sm:gap-0 sm:divide-x sm:divide-slate-200">
+                                <div className="flex items-center gap-1 py-0.5 sm:px-2.5 sm:first:pl-0">
+                                  <span>Total:</span>
+                                  <span className="font-semibold tabular-nums text-slate-900">
+                                    {formatAmountField(purchaseTotal) || "0"}
+                                  </span>
+                                </div>
+                                <label className="flex items-center gap-1.5 py-0.5 sm:px-2.5">
+                                  <span>Paid:</span>
+                                  <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    min={0}
+                                    step="any"
+                                    value={paidFieldValue}
+                                    onChange={(event) => {
+                                      const value = event.target.value;
+                                      updateDraft(draft.key, (row) => ({
+                                        ...row,
+                                        paidFollowsTotal: false,
+                                        paidDraft: value,
+                                        error: null,
+                                      }));
+                                      setSuccessMessage(null);
+                                    }}
+                                    disabled={fieldsLocked}
+                                    aria-label="Paid amount"
+                                    title="Enter amount paid"
+                                    placeholder="0"
+                                    className="no-spinner h-7 w-[4.75rem] rounded border border-slate-300 bg-white px-1.5 text-right text-xs font-semibold tabular-nums text-slate-900 outline-none ring-[var(--pos-accent)] placeholder:font-normal placeholder:text-slate-400 focus:border-[var(--pos-accent)] focus:ring-2 disabled:bg-slate-50 disabled:opacity-60"
+                                  />
+                                </label>
+                                <div className="flex items-center gap-1 py-0.5 sm:px-2.5 sm:last:pr-0">
+                                  <span>Due:</span>
+                                  <span
+                                    className={`font-semibold tabular-nums ${
+                                      dueAmount < 0
+                                        ? "text-[var(--pos-accent)]"
+                                        : dueAmount > 0
+                                          ? "text-rose-600"
+                                          : "text-emerald-600"
+                                    }`}
+                                  >
+                                    {formatAmountField(dueAmount) || "0"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                );
-              })}
 
-              <input
-                ref={attachmentInputRef}
-                type="file"
-                className="hidden"
-                multiple
-                onChange={(event) => onAttachFiles(event.target.files)}
-              />
+                  {draft.error ? (
+                    <p className="border-t border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                      {draft.error}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
 
-              {formError ? (
-                <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-                  {formError}
-                </p>
-              ) : null}
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              className="hidden"
+              multiple
+              onChange={(event) => onAttachFiles(event.target.files)}
+            />
 
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                <button
-                  type="button"
-                  onClick={startNewPurchase}
-                  disabled={!canPurchase}
-                  className="inline-flex h-8 items-center justify-center gap-1 rounded border border-[var(--pos-header)] bg-[var(--pos-header)] px-2.5 text-xs font-semibold text-pos-on-header hover:brightness-110 disabled:opacity-50"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Supplier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    saveAllEntries();
-                  }}
-                  disabled={!canPurchase || !hasUnsavedChanges}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--pos-header)] px-5 text-sm font-semibold text-pos-on-header hover:brightness-110 disabled:opacity-50"
-                >
-                  Save
-                </button>
-              </div>
+            {formError ? (
+              <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                {formError}
+              </p>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={startNewPurchase}
+                disabled={!canPurchase}
+                className="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                Supplier
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  saveAllEntries();
+                }}
+                disabled={!canPurchase || !hasUnsavedChanges}
+                className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--pos-header)] px-5 text-sm font-semibold text-pos-on-header hover:brightness-110 disabled:opacity-50"
+              >
+                Save
+              </button>
             </div>
           </section>
 
@@ -1467,7 +1477,7 @@ export function ItemPurchaseScreen() {
                       const itemTitle = purchase.lines
                         .map(
                           (line) =>
-                            `${line.quantity} ${line.unit} ${line.name} (${formatMoney(line.total)})`,
+                            `${line.quantity} ${line.unit} ${line.name} (${formatAmountField(line.total) || "0"})`,
                         )
                         .join("\n");
 
@@ -1507,7 +1517,7 @@ export function ItemPurchaseScreen() {
                             </td>
                           ) : null}
                           <td className="px-3 py-3 text-right align-middle font-semibold tabular-nums text-slate-900">
-                            {formatMoney(purchase.total)}
+                            {formatAmountField(purchase.total) || "0"}
                           </td>
                           <td className="px-4 py-3 align-middle">
                             <span

@@ -28,6 +28,8 @@ interface SelectProps {
   className?: string;
   /** Compact trigger for dense table cells. */
   compact?: boolean;
+  /** Borderless trigger that blends into table cells. */
+  bare?: boolean;
 }
 
 type MenuPosition = {
@@ -46,6 +48,7 @@ export function Select({
   "aria-label": ariaLabel,
   className = "",
   compact = false,
+  bare = false,
 }: SelectProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -214,14 +217,20 @@ export function Select({
           setOpen((current) => !current);
         }}
         onKeyDown={onTriggerKeyDown}
-        className={`flex w-full items-center gap-1.5 rounded-md border bg-white text-left text-sm font-medium text-slate-800 transition outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
-          compact
-            ? "min-h-9 min-w-0 border-slate-200 px-2"
-            : "min-h-10 border-slate-300 px-3"
+        className={`flex w-full items-center gap-1.5 text-left text-sm font-medium text-slate-800 transition outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+          bare
+            ? "min-h-7 min-w-0 rounded-none border-0 bg-transparent px-1.5 hover:bg-transparent"
+            : compact
+              ? "min-h-7 min-w-0 rounded border border-slate-200 bg-white px-2 text-xs"
+              : "min-h-10 rounded-md border border-slate-300 bg-white px-3"
         } ${
           open
-            ? "border-[var(--pos-accent)] ring-2 ring-[var(--pos-accent)]/20"
-            : "hover:border-slate-300 hover:bg-slate-50 focus-visible:border-[var(--pos-accent)] focus-visible:ring-2 focus-visible:ring-[var(--pos-accent)]/20"
+            ? bare
+              ? "ring-2 ring-[var(--pos-accent)]/20"
+              : "border-[var(--pos-accent)] ring-2 ring-[var(--pos-accent)]/20"
+            : bare
+              ? "focus-visible:ring-2 focus-visible:ring-[var(--pos-accent)]/20"
+              : "hover:border-slate-300 hover:bg-slate-50 focus-visible:border-[var(--pos-accent)] focus-visible:ring-2 focus-visible:ring-[var(--pos-accent)]/20"
         }`}
       >
         <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
