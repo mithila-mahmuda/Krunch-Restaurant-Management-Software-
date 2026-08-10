@@ -19,8 +19,9 @@
   --pos-canvas: #1d4f7a;
   --pos-accent: #1f6feb;
   --pos-accent-soft: color-mix(in srgb, var(--pos-accent) 14%, white);
-  --pos-selected: #00aeef;
-  --pos-selected-deep: #0098d4;
+  /* Active ticket line follows brand theme (same as header). */
+  --pos-selected: var(--pos-header);
+  --pos-selected-deep: var(--pos-header-deep);
 
   /*
    * Auto ink on brand fills — same trick as FN People Performance.
@@ -28,6 +29,7 @@
    */
   --pos-on-header: oklch(from var(--pos-header) round(1.21 - l) 0 0);
   --pos-on-accent: oklch(from var(--pos-accent) round(1.21 - l) 0 0);
+  --pos-on-selected: oklch(from var(--pos-selected) round(1.21 - l) 0 0);
   /* Darker chrome for header buttons + active nav */
   --pos-header-deep: color-mix(in srgb, var(--pos-header) 72%, black);
 
@@ -53,6 +55,7 @@
   --color-foreground: var(--foreground);
   --color-pos-on-header: var(--pos-on-header);
   --color-pos-on-accent: var(--pos-on-accent);
+  --color-pos-on-selected: var(--pos-on-selected);
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
 }
@@ -141,6 +144,38 @@ a {
   padding-inline: 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.app-header-btn--ghost {
+  background: transparent;
+  color: color-mix(in srgb, var(--pos-on-header) 88%, transparent);
+}
+
+.app-header-btn--ghost:hover {
+  background: color-mix(in srgb, var(--pos-on-header) 12%, transparent);
+  color: var(--pos-on-header);
+}
+
+/* Groups of related header controls with a soft divider between clusters */
+.app-header-cluster {
+  display: flex;
+  min-width: 0;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-header-cluster + .app-header-cluster {
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid color-mix(in srgb, var(--pos-on-header) 22%, transparent);
+}
+
+@media (min-width: 640px) {
+  .app-header-cluster + .app-header-cluster {
+    margin-left: 0.35rem;
+    padding-left: 0.65rem;
+  }
 }
 
 /* Kitchen drag-and-drop column highlight (toggled via DOM during drag) */

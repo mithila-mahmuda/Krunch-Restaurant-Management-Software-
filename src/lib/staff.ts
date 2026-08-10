@@ -1,6 +1,10 @@
 import { ALL_BRANCHES_ID } from "@/lib/branch-access";
 import type { RoleId } from "@/lib/permissions";
 import { SEED_BRANCH_IDS } from "@/lib/seed-locations";
+import {
+  DEMO_STAFF_EMOJIS,
+  resolveStaffAvatarEmoji,
+} from "@/lib/staff-avatar";
 import { DEMO_RESTAURANT_ID } from "@/lib/tenant";
 
 export { ALL_BRANCHES_ID };
@@ -15,6 +19,10 @@ export interface StaffUser {
   name: string;
   mobile: string;
   email: string;
+  /** Optional profile photo (data URL). */
+  avatarDataUrl?: string | null;
+  /** Emoji avatar used when no photo is set. */
+  avatarEmoji?: string | null;
   /** Role id — permissions come from the roles store. */
   role: StaffRole;
   /**
@@ -46,6 +54,7 @@ export function createDemoStaff(_fallbackBranchId?: string): StaffUser[] {
       name: "Kyle",
       mobile: "01700000001",
       email: "kyle@krunch.app",
+      avatarEmoji: DEMO_STAFF_EMOJIS.kyle,
       role: `${DEMO_RESTAURANT_ID}:admin`,
       branchId: ALL_BRANCHES_ID,
       password: "till1234",
@@ -58,6 +67,7 @@ export function createDemoStaff(_fallbackBranchId?: string): StaffUser[] {
       name: "Maya",
       mobile: "01700000002",
       email: "maya@krunch.app",
+      avatarEmoji: DEMO_STAFF_EMOJIS.maya,
       role: `${DEMO_RESTAURANT_ID}:cashier`,
       branchId: SEED_BRANCH_IDS.dhanmondi,
       password: "till5678",
@@ -70,6 +80,7 @@ export function createDemoStaff(_fallbackBranchId?: string): StaffUser[] {
       name: "Sam",
       mobile: "01700000003",
       email: "sam@krunch.app",
+      avatarEmoji: DEMO_STAFF_EMOJIS.sam,
       role: `${DEMO_RESTAURANT_ID}:server`,
       branchId: SEED_BRANCH_IDS.gulshan,
       password: "till9012",
@@ -82,6 +93,7 @@ export function createDemoStaff(_fallbackBranchId?: string): StaffUser[] {
       name: "Riya",
       mobile: "01700000004",
       email: "riya@krunch.app",
+      avatarEmoji: DEMO_STAFF_EMOJIS.riya,
       role: `${DEMO_RESTAURANT_ID}:cashier`,
       branchId: SEED_BRANCH_IDS.gulshan,
       password: "till3456",
@@ -94,6 +106,7 @@ export function createDemoStaff(_fallbackBranchId?: string): StaffUser[] {
       name: "Nadia",
       mobile: "01700000005",
       email: "nadia@krunch.app",
+      avatarEmoji: DEMO_STAFF_EMOJIS.nadia,
       role: `${DEMO_RESTAURANT_ID}:manager`,
       branchId: SEED_BRANCH_IDS.banani,
       password: "till7890",
@@ -130,6 +143,11 @@ export function assignDemoStaffBranches(
         role: `${updated.restaurantId}:${updated.role}`,
       };
     }
+    const emoji = resolveStaffAvatarEmoji(updated.id, updated.avatarEmoji);
+    if (updated.avatarEmoji !== emoji) {
+      changed = true;
+      updated = { ...updated, avatarEmoji: emoji };
+    }
     const target = targets[updated.id];
     if (!target || updated.branchId === target) return updated;
     if (target !== ALL_BRANCHES_ID && !branchIds.has(target)) return updated;
@@ -147,6 +165,7 @@ export function assignDemoStaffBranches(
       name: "Riya",
       mobile: "01700000004",
       email: "riya@krunch.app",
+      avatarEmoji: DEMO_STAFF_EMOJIS.riya,
       role: `${DEMO_RESTAURANT_ID}:cashier`,
       branchId: SEED_BRANCH_IDS.gulshan,
       password: "till3456",
@@ -163,6 +182,7 @@ export function assignDemoStaffBranches(
       name: "Nadia",
       mobile: "01700000005",
       email: "nadia@krunch.app",
+      avatarEmoji: DEMO_STAFF_EMOJIS.nadia,
       role: `${DEMO_RESTAURANT_ID}:manager`,
       branchId: SEED_BRANCH_IDS.banani,
       password: "till7890",

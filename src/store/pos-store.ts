@@ -2,6 +2,11 @@
 
 import { create } from "zustand";
 import { diningOptionLabel, formatMoney } from "@/lib/format";
+import {
+  inventoryForTillCheck,
+  stockShortfallsForLines,
+  type StockShortfall,
+} from "@/lib/inventory-stock";
 import { promotions } from "@/lib/mock-data";
 import { printReceiptText } from "@/lib/print-receipt";
 import {
@@ -23,6 +28,8 @@ import { useCatalogStore } from "@/store/catalog-store";
 import { useOpsStore } from "@/store/ops-store";
 import { useSettingsStore } from "@/store/settings-store";
 
+export type StatusTone = "info" | "warning";
+
 interface PosState {
   activeCategoryId: string | null;
   lines: OrderLine[];
@@ -39,6 +46,7 @@ interface PosState {
   /** When set, pay/fire updates this ops order instead of creating a new one. */
   editingOrderId: string | null;
   statusMessage: string | null;
+  statusTone: StatusTone;
   lastReceipt: string | null;
   setActiveCategory: (categoryId: string | null) => void;
   setActiveTab: (tab: SidebarTab) => void;
@@ -50,6 +58,8 @@ interface PosState {
   addMiscProduct: (name: string, price: number) => void;
   selectLine: (lineId: string | null) => void;
   updateQuantity: (lineId: string, delta: number) => void;
+  /** Soft stock check for the current ticket (does not block). */
+  getStockShortfalls: () => StockShortfall[];
   removeLine: (lineId: string) => void;
   clearOrder: () => void;
   setDiningOption: (option: DiningOption) => void;
@@ -88,12 +98,54 @@ interface PosState {
         printed: boolean;
       }
     | { ok: false; error: string };
-  setStatusMessage: (message: string | null) => void;
+  setStatusMessage: (message: string | null, tone?: StatusTone) => void;
   applyServiceDefault: () => void;
+}
+
+function currentStockShortfalls(
+  lines: OrderLine[],
+  editingOrderId: string | null,
+): StockShortfall[] {
+  const branchId = useSettingsStore.getState().activeBranchId;
+  const ops = useOpsStore.getState();
+  const products = useCatalogStore.getState().products;
+  const editing = editingOrderId
+    ? ops.orders.find((order) => order.id === editingOrderId)
+    : null;
+  const inventory = inventoryForTillCheck(
+    ops.inventory,
+    branchId,
+    editing
+      ? {
+          lines: editing.lines,
+          inventoryDeducted: editing.inventoryDeducted,
+        }
+      : null,
+    products,
+  );
+  return stockShortfallsForLines(lines, products, inventory, branchId);
 }
 
 function createLineId(): string {
   return `line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Keep same-product variants (notes / discounts) adjacent on the ticket. */
+function groupLinesByProduct(lines: OrderLine[]): OrderLine[] {
+  const groups = new Map<string, OrderLine[]>();
+  const productOrder: string[] = [];
+
+  for (const line of lines) {
+    const group = groups.get(line.productId);
+    if (!group) {
+      groups.set(line.productId, [line]);
+      productOrder.push(line.productId);
+    } else {
+      group.push(line);
+    }
+  }
+
+  return productOrder.flatMap((productId) => groups.get(productId) ?? []);
 }
 
 function applyPromotions(lines: OrderLine[]): OrderLine[] {
@@ -128,7 +180,7 @@ function applyPromotions(lines: OrderLine[]): OrderLine[] {
     }
   }
 
-  return next;
+  return groupLinesByProduct(next);
 }
 
 function emptyTicket() {
@@ -238,66 +290,73 @@ export const usePosStore = create<PosState>((set, get) => ({
   tableLabel: null,
   editingOrderId: null,
   statusMessage: null,
+  statusTone: "info",
   lastReceipt: null,
 
   setActiveCategory: (categoryId) => set({ activeCategoryId: categoryId }),
   setActiveTab: (tab) => set({ activeTab: tab }),
   setNavOpen: (open) => set({ navOpen: open }),
   setOrderPanelOpen: (open) => set({ orderPanelOpen: open }),
-  setStatusMessage: (message) => set({ statusMessage: message }),
+  setStatusMessage: (message, tone = "info") =>
+    set({ statusMessage: message, statusTone: tone }),
 
   applyServiceDefault: () => {
     set({ serviceEnabled: useSettingsStore.getState().serviceDefault });
+  },
+
+  getStockShortfalls: () => {
+    const state = get();
+    return currentStockShortfalls(state.lines, state.editingOrderId);
   },
 
   addProduct: (product) => {
     const catalogProduct =
       useCatalogStore.getState().getProduct(product.id) ?? product;
     if (catalogProduct.available === false) {
-      set({ statusMessage: `${catalogProduct.name} is unavailable` });
+      set({
+        statusMessage: `${catalogProduct.name} is unavailable`,
+        statusTone: "warning",
+      });
       return { ok: false, error: `${catalogProduct.name} is unavailable` };
     }
 
-    set((state) => {
-      const existing = state.lines.find(
-        (line) =>
-          line.productId === catalogProduct.id &&
-          !line.note &&
-          line.manualDiscountAmount === 0,
+    const state = get();
+    const existing = state.lines.find(
+      (line) =>
+        line.productId === catalogProduct.id &&
+        !line.note &&
+        line.manualDiscountAmount === 0,
+    );
+
+    let lines: OrderLine[];
+    let selectedLineId: string;
+
+    if (existing) {
+      lines = state.lines.map((line) =>
+        line.id === existing.id
+          ? { ...line, quantity: line.quantity + 1 }
+          : line,
       );
-
-      let lines: OrderLine[];
-
-      if (existing) {
-        lines = state.lines.map((line) =>
-          line.id === existing.id
-            ? { ...line, quantity: line.quantity + 1 }
-            : line,
-        );
-      } else {
-        const newLine: OrderLine = {
-          id: createLineId(),
-          productId: catalogProduct.id,
-          name: catalogProduct.name,
-          unitPrice: catalogProduct.price,
-          quantity: 1,
-          manualDiscountAmount: 0,
-          discountAmount: 0,
-        };
-        lines = [...state.lines, newLine];
-      }
-
-      const withPromos = applyPromotions(lines);
-      const selected =
-        withPromos.find((line) => line.productId === catalogProduct.id)?.id ??
-        state.selectedLineId;
-
-      return {
-        lines: withPromos,
-        selectedLineId: selected,
-        activeCategoryId: state.activeCategoryId ?? catalogProduct.categoryId,
-        orderPanelOpen: state.orderPanelOpen,
+      selectedLineId = existing.id;
+    } else {
+      const newLine: OrderLine = {
+        id: createLineId(),
+        productId: catalogProduct.id,
+        name: catalogProduct.name,
+        unitPrice: catalogProduct.price,
+        quantity: 1,
+        manualDiscountAmount: 0,
+        discountAmount: 0,
       };
+      lines = [...state.lines, newLine];
+      selectedLineId = newLine.id;
+    }
+
+    set({
+      lines: applyPromotions(lines),
+      selectedLineId,
+      activeCategoryId: state.activeCategoryId ?? catalogProduct.categoryId,
+      orderPanelOpen: state.orderPanelOpen,
     });
 
     return { ok: true };
@@ -502,9 +561,12 @@ export const usePosStore = create<PosState>((set, get) => ({
     if (!result.ok) return result;
 
     const order = result.order;
+    const lines = groupLinesByProduct(
+      order.lines.map((line) => ({ ...line })),
+    );
     set({
-      lines: order.lines.map((line) => ({ ...line })),
-      selectedLineId: order.lines.at(-1)?.id ?? null,
+      lines,
+      selectedLineId: lines.at(-1)?.id ?? null,
       diningOption: order.diningOption,
       serviceEnabled: order.serviceEnabled,
       customerId: order.customerId,
@@ -542,9 +604,12 @@ export const usePosStore = create<PosState>((set, get) => ({
       return get().recallOrder(orderId);
     }
 
+    const lines = groupLinesByProduct(
+      order.lines.map((line) => ({ ...line })),
+    );
     set({
-      lines: order.lines.map((line) => ({ ...line })),
-      selectedLineId: order.lines.at(-1)?.id ?? null,
+      lines,
+      selectedLineId: lines.at(-1)?.id ?? null,
       diningOption: order.diningOption,
       serviceEnabled: order.serviceEnabled,
       customerId: order.customerId,
@@ -636,9 +701,10 @@ export const usePosStore = create<PosState>((set, get) => ({
       return get().recallOrder(open.id);
     }
 
+    const lines = groupLinesByProduct(open.lines.map((line) => ({ ...line })));
     set({
-      lines: open.lines.map((line) => ({ ...line })),
-      selectedLineId: open.lines.at(-1)?.id ?? null,
+      lines,
+      selectedLineId: lines.at(-1)?.id ?? null,
       diningOption: open.diningOption,
       serviceEnabled: open.serviceEnabled,
       customerId: open.customerId,

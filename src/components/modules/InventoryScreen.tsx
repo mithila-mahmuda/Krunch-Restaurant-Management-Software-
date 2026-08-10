@@ -97,7 +97,7 @@ export function InventoryScreen() {
                     ) : null}
                   </div>
                   <p className="text-sm text-slate-500">
-                    {item.category} · par {item.parLevel} {item.unit}
+                    {item.category} · target {item.parLevel} {item.unit}
                   </p>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
                     <div

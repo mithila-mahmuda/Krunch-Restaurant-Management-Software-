@@ -33,6 +33,7 @@ export const PATH_PERMISSIONS: Record<string, Permission> = {
   "/menu": "access_menu",
   "/inventory": "access_inventory",
   "/reports": "access_reports",
+  "/settings/users": "manage_users",
   "/settings": "access_settings",
 };
 

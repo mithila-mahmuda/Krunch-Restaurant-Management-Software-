@@ -12,6 +12,7 @@ import {
   type StaffRole,
   type StaffUser,
 } from "@/lib/staff";
+import { resolveStaffAvatarEmoji, staffAvatarEmoji } from "@/lib/staff-avatar";
 import {
   DEMO_RESTAURANT_ID,
   roleIdForRestaurant,
@@ -37,7 +38,7 @@ function publishAssignedRoleIds(staff: StaffUser[]) {
       __krunchStaffAssignedRoleIds?: () => string[];
     }
   ).__krunchStaffAssignedRoleIds = () =>
-    staff.filter((row) => !row.archived).map((row) => row.role);
+      staff.filter((row) => !row.archived).map((row) => row.role);
 }
 
 function adminUserCount(staff: StaffUser[], excludeId?: string) {
@@ -56,6 +57,8 @@ export type StaffInput = {
   role: StaffRole;
   branchId: string;
   password: string;
+  avatarDataUrl?: string | null;
+  avatarEmoji?: string | null;
 };
 
 interface StaffState {
@@ -150,23 +153,31 @@ export const useStaffStore = create<StaffState>((set, get) => ({
     );
 
     const isDemo = restaurantId === DEMO_RESTAURANT_ID;
+    let emojiBackfill = false;
     const base =
       loaded.length > 0
-        ? loaded.map((row) => ({
+        ? loaded.map((row) => {
+          const avatarEmoji = resolveStaffAvatarEmoji(row.id, row.avatarEmoji);
+          if (row.avatarEmoji !== avatarEmoji) emojiBackfill = true;
+          return {
             ...row,
             restaurantId: row.restaurantId ?? restaurantId,
             mobile: row.mobile ?? "",
             branchId: row.branchId || branchId,
+            avatarEmoji,
             archived: Boolean(row.archived),
             createdAt: row.createdAt || new Date().toISOString(),
-          }))
+          };
+        })
         : isDemo
           ? createDemoStaff(branchId)
           : [];
 
-    const { staff, changed } = isDemo
+    const migrated = isDemo
       ? assignDemoStaffBranches(base, branchIds)
       : { staff: base, changed: false };
+    const staff = migrated.staff;
+    const changed = migrated.changed || emojiBackfill;
 
     publishAssignedRoleIds(staff);
     set({ restaurantId, staff, hydrated: true });
@@ -206,12 +217,16 @@ export const useStaffStore = create<StaffState>((set, get) => ({
     if (error) return { ok: false, error };
 
     const restaurantId = get().restaurantId ?? DEMO_RESTAURANT_ID;
+    const id = newStaffId();
     const staff: StaffUser = {
-      id: newStaffId(),
+      id,
       restaurantId,
       name: input.name.trim(),
       mobile: input.mobile.trim(),
       email: normalizeEmail(input.email),
+      avatarDataUrl: input.avatarDataUrl?.trim() || null,
+      avatarEmoji:
+        input.avatarEmoji?.trim() || staffAvatarEmoji(id),
       role: input.role,
       branchId: input.branchId,
       password: input.password.trim(),
@@ -238,6 +253,14 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       role: input.role ?? existing.role,
       branchId: input.branchId ?? existing.branchId,
       password: input.password ?? existing.password,
+      avatarDataUrl:
+        input.avatarDataUrl === undefined
+          ? existing.avatarDataUrl
+          : input.avatarDataUrl,
+      avatarEmoji:
+        input.avatarEmoji === undefined
+          ? existing.avatarEmoji
+          : input.avatarEmoji,
     };
     const error = validateInput(merged, get().staff, id);
     if (error) return { ok: false, error };
@@ -256,14 +279,18 @@ export const useStaffStore = create<StaffState>((set, get) => ({
     const next = get().staff.map((row) =>
       row.id === id
         ? {
-            ...row,
-            name: merged.name.trim(),
-            mobile: merged.mobile.trim(),
-            email: normalizeEmail(merged.email),
-            role: merged.role,
-            branchId: merged.branchId,
-            password: merged.password.trim(),
-          }
+          ...row,
+          name: merged.name.trim(),
+          mobile: merged.mobile.trim(),
+          email: normalizeEmail(merged.email),
+          avatarDataUrl: merged.avatarDataUrl?.trim() || null,
+          avatarEmoji:
+            merged.avatarEmoji?.trim() ||
+            resolveStaffAvatarEmoji(id, existing.avatarEmoji),
+          role: merged.role,
+          branchId: merged.branchId,
+          password: merged.password.trim(),
+        }
         : row,
     );
     set({ staff: next, hydrated: true });

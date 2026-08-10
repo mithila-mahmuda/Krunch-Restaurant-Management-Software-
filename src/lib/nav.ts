@@ -52,7 +52,7 @@ export const NAV_PAGES: NavPage[] = [
   {
     href: "/inventory",
     label: "Inventory",
-    keywords: ["stock", "par", "supplies"],
+    keywords: ["stock", "target", "par", "supplies"],
     permission: PATH_PERMISSIONS["/inventory"]!,
   },
   {

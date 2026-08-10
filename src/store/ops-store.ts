@@ -3,7 +3,6 @@
 import { create } from "zustand";
 import {
   demoBranchForServer,
-  inventoryCatalogKey,
   inventoryForBranches,
   normalizeInventory,
   normalizeTables,
@@ -32,7 +31,10 @@ import {
   resolveReceiptBrand,
   serializeReceipt,
 } from "@/lib/receipt";
-import { recipeDeductionsForLines } from "@/lib/recipes";
+import {
+  commitInventoryForLines,
+  restoreInventory,
+} from "@/lib/inventory-stock";
 import { SEED_BRANCH_IDS } from "@/lib/seed-locations";
 import { DEMO_RESTAURANT_ID } from "@/lib/tenant";
 import type {
@@ -49,6 +51,10 @@ import { useAuthStore } from "@/store/auth-store";
 import { useCatalogStore } from "@/store/catalog-store";
 import { useCustomerStore } from "@/store/customer-store";
 import { useSettingsStore } from "@/store/settings-store";
+
+function catalogProductsForStock() {
+  return useCatalogStore.getState().products;
+}
 
 function activeBranchIds(): string[] {
   return useSettingsStore
@@ -428,61 +434,6 @@ function syncTablesFromOrders(
       server: order.server,
       activeOrderId: order.id,
       guestCount: table.guestCount ?? 2,
-    };
-  });
-}
-
-function applyInventoryDeductions(
-  inventory: InventoryItem[],
-  lines: OrderLine[],
-  branchId: string,
-): InventoryItem[] {
-  const deductions = recipeDeductionsForLines(
-    lines,
-    useCatalogStore.getState().products,
-  );
-  if (deductions.length === 0) return inventory;
-
-  return inventory.map((item) => {
-    if (item.branchId !== branchId) return item;
-    const catalog = inventoryCatalogKey(item.id);
-    const deduction = deductions.find(
-      (entry) =>
-        entry.inventoryId === catalog || entry.inventoryId === item.id,
-    );
-    if (!deduction) return item;
-    return {
-      ...item,
-      onHand: Math.max(
-        0,
-        Math.round((item.onHand - deduction.quantity) * 1000) / 1000,
-      ),
-    };
-  });
-}
-
-function restoreInventory(
-  inventory: InventoryItem[],
-  lines: OrderLine[],
-  branchId: string,
-): InventoryItem[] {
-  const deductions = recipeDeductionsForLines(
-    lines,
-    useCatalogStore.getState().products,
-  );
-  if (deductions.length === 0) return inventory;
-
-  return inventory.map((item) => {
-    if (item.branchId !== branchId) return item;
-    const catalog = inventoryCatalogKey(item.id);
-    const deduction = deductions.find(
-      (entry) =>
-        entry.inventoryId === catalog || entry.inventoryId === item.id,
-    );
-    if (!deduction) return item;
-    return {
-      ...item,
-      onHand: Math.round((item.onHand + deduction.quantity) * 1000) / 1000,
     };
   });
 }
@@ -868,16 +819,24 @@ export const useOpsStore = create<OpsState>((set, get) => ({
       branchName: location.branchName,
       tillId: location.tillId,
       tillName: location.tillName,
-      inventoryDeducted: false,
+      inventoryDeducted: true,
       held: false,
     };
 
+    const inventory = commitInventoryForLines(
+      state.inventory,
+      location.branchId,
+      order.lines,
+      undefined,
+      catalogProductsForStock(),
+    );
     const orders = [order, ...state.orders];
     const tables = syncTablesFromOrders(state.tables, orders);
 
     set({
       orders,
       tables,
+      inventory,
       nextOrderNumber: state.nextOrderNumber + 1,
     });
     get().persist();
@@ -909,6 +868,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
     const notes = kitchenNotesFromLines(input.lines);
     const location = activeLocationStamp();
 
+    const stockBranchId = existing?.branchId ?? location.branchId;
     const order: OpsOrder = {
       id: existing?.id ?? `paid-${Date.now().toString(36)}`,
       number: existing?.number ?? `#${state.nextOrderNumber}`,
@@ -930,7 +890,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
       method: input.payment.method,
       total: totals.total,
       source: "till",
-      branchId: existing?.branchId ?? location.branchId,
+      branchId: stockBranchId,
       branchName: existing?.branchName ?? location.branchName,
       tillId: existing?.tillId ?? location.tillId,
       tillName: existing?.tillName ?? location.tillName,
@@ -940,10 +900,16 @@ export const useOpsStore = create<OpsState>((set, get) => ({
 
     order.receipt = buildReceipt(order, { ...input.payment, change });
 
-    const inventory = applyInventoryDeductions(
+    // Deduct on pay only if not already committed at Send Kitchen; reconcile
+    // when lines changed between fire and pay.
+    const inventory = commitInventoryForLines(
       state.inventory,
+      stockBranchId,
       order.lines,
-      order.branchId ?? location.branchId,
+      existing
+        ? { lines: existing.lines, deducted: existing.inventoryDeducted }
+        : undefined,
+      catalogProductsForStock(),
     );
     const orders = existing
       ? state.orders.map((item) => (item.id === existing.id ? order : item))
@@ -1019,10 +985,26 @@ export const useOpsStore = create<OpsState>((set, get) => ({
 
     const totals = computeTotals(input.lines, input.serviceEnabled);
     const notes = kitchenNotesFromLines(input.lines);
+    const stockBranchId =
+      existing.branchId ?? useSettingsStore.getState().activeBranchId;
+    const lines = input.lines.map((line) => ({ ...line }));
+
+    let inventory = state.inventory;
+    let inventoryDeducted = existing.inventoryDeducted;
+    if (input.fireToKitchen) {
+      inventory = commitInventoryForLines(
+        inventory,
+        stockBranchId,
+        lines,
+        { lines: existing.lines, deducted: existing.inventoryDeducted },
+        catalogProductsForStock(),
+      );
+      inventoryDeducted = true;
+    }
 
     const order: OpsOrder = {
       ...existing,
-      lines: input.lines.map((line) => ({ ...line })),
+      lines,
       diningOption: input.diningOption,
       serviceEnabled: input.serviceEnabled,
       customerId: input.customerId,
@@ -1038,6 +1020,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
         ? existing.kitchenStartedAt ?? nowIso()
         : existing.kitchenStartedAt,
       kitchenNotes: notes || existing.kitchenNotes,
+      inventoryDeducted,
       status:
         input.fireToKitchen && existing.status === "open"
           ? kitchenStatusToTicket(existing.kitchenStatus ?? "queued")
@@ -1048,7 +1031,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
       item.id === orderId ? order : item,
     );
     const tables = syncTablesFromOrders(state.tables, orders);
-    set({ orders, tables });
+    set({ orders, tables, inventory });
     get().persist();
     if (input.fireToKitchen) playKitchenSound();
     return { ok: true, order };
@@ -1132,15 +1115,24 @@ export const useOpsStore = create<OpsState>((set, get) => ({
         order.branchId ?? useSettingsStore.getState().activeBranchId;
 
       if (status === "void" && order.inventoryDeducted) {
-        inventory = restoreInventory(inventory, order.lines, stockBranchId);
-      }
-
-      if (status === "paid" && !order.inventoryDeducted) {
-        inventory = applyInventoryDeductions(
+        inventory = restoreInventory(
           inventory,
           order.lines,
           stockBranchId,
+          catalogProductsForStock(),
         );
+      }
+
+      if (status === "paid") {
+        if (!order.inventoryDeducted) {
+          inventory = commitInventoryForLines(
+            inventory,
+            stockBranchId,
+            order.lines,
+            undefined,
+            catalogProductsForStock(),
+          );
+        }
         recordLoyalty(order.customerId, order.total);
       }
 

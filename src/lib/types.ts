@@ -8,7 +8,7 @@ export type TicketStatus = "open" | "preparing" | "ready" | "paid" | "void";
 export type KitchenStatus = "queued" | "preparing" | "ready" | "served";
 export type TableStatus = "free" | "seated" | "ordered" | "bill";
 
-/** One inventory ingredient used to make a product (per unit sold). */
+/** One inventory ingredient used to make a product (per unit sent to kitchen). */
 export interface RecipeIngredient {
   /** Inventory catalog key (`i1`) or scoped id — matched via `inventoryCatalogKey`. */
   inventoryId: string;
@@ -44,7 +44,7 @@ export interface Product {
   color?: string;
   /** Optional photo used as the till tile background (data URL). */
   imageDataUrl?: string | null;
-  /** Ingredients deducted from inventory when this item is sold. */
+  /** Ingredients deducted from inventory when sent to kitchen (or paid if never kitchened). */
   recipe?: RecipeIngredient[];
   /** Display order within its category (lower first). */
   sortOrder?: number;

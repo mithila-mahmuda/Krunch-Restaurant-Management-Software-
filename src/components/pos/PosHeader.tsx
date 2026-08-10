@@ -38,6 +38,7 @@ export function PosHeader() {
   const activeBranch = getActiveBranch();
   const branchTills = getBranchTills(activeBranch.id);
   const canSwitchTill = branchTills.length > 1;
+  const showBranchSwitcher = canSwitchBranch && accessible.length > 1;
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -75,26 +76,43 @@ export function PosHeader() {
   }, [tillMenuOpen, branchMenuOpen]);
 
   return (
-    <header className="flex min-h-14 shrink-0 items-center gap-2 bg-[var(--pos-header)] px-2 pt-[env(safe-area-inset-top)] text-pos-on-header shadow-sm sm:gap-3 sm:px-3">
-      <button
-        type="button"
-        onClick={() => setNavOpen(true)}
-        className="app-header-btn"
-        aria-label="Open navigation"
-      >
-        <Menu className="h-6 w-6" />
-      </button>
+    <header className="grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 bg-[var(--pos-header)] px-2 pt-[env(safe-area-inset-top)] text-pos-on-header shadow-sm sm:gap-3 sm:px-3">
+      {/* Identity */}
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={() => setNavOpen(true)}
+          className="app-header-btn"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
 
-      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <span
-          className="min-w-0 max-w-[9rem] truncate font-[family-name:var(--font-display)] text-lg font-bold tracking-tight sm:max-w-[14rem] sm:text-xl"
+          className="min-w-0 truncate font-[family-name:var(--font-display)] text-lg font-bold tracking-tight sm:text-xl"
           title={brandName}
         >
           {brandName}
         </span>
+      </div>
 
-        <div className="relative flex shrink-0 items-center gap-1.5" ref={menuRef}>
-          {canSwitchBranch && accessible.length > 1 ? (
+      {/* Session time */}
+      <p
+        className="justify-self-center px-1 text-center text-xs font-semibold tracking-wide text-pos-on-header/90 sm:text-sm"
+        aria-live="polite"
+      >
+        {now ? formatTillClock(now) : "\u00a0"}
+      </p>
+
+      {/* Location → tools → account */}
+      <div className="flex min-w-0 items-center justify-end">
+        <div
+          className="app-header-cluster relative"
+          role="group"
+          aria-label="Location"
+          ref={menuRef}
+        >
+          {showBranchSwitcher ? (
             <button
               type="button"
               onClick={() => {
@@ -104,15 +122,15 @@ export function PosHeader() {
               aria-haspopup="listbox"
               aria-expanded={branchMenuOpen}
               title="Switch branch"
-              className="app-header-btn app-header-btn--label max-w-[8rem] gap-1 tracking-wide sm:max-w-none"
+              className="app-header-btn app-header-btn--label max-w-[7rem] gap-1 tracking-wide sm:max-w-[9rem]"
             >
               <span className="truncate">{activeBranch.name}</span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-80" />
             </button>
           ) : (
             <span
-              className="app-header-btn app-header-btn--label max-w-[8rem] tracking-wide sm:max-w-none"
-              title="Branch is assigned by an admin"
+              className="app-header-btn app-header-btn--label app-header-btn--ghost max-w-[7rem] tracking-wide sm:max-w-[9rem]"
+              title="Branch"
             >
               <span className="truncate">{activeBranch.name}</span>
             </span>
@@ -128,13 +146,16 @@ export function PosHeader() {
               aria-haspopup="listbox"
               aria-expanded={tillMenuOpen}
               title="Switch till at this branch"
-              className="app-header-btn app-header-btn--label max-w-[7rem] gap-1 tracking-wide sm:max-w-none"
+              className="app-header-btn app-header-btn--label max-w-[6rem] gap-1 tracking-wide sm:max-w-[8rem]"
             >
               <span className="truncate">{tillName}</span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-80" />
             </button>
           ) : (
-            <span className="app-header-btn app-header-btn--label max-w-[7rem] tracking-wide sm:max-w-none">
+            <span
+              className="app-header-btn app-header-btn--label app-header-btn--ghost max-w-[6rem] tracking-wide sm:max-w-[8rem]"
+              title="Till"
+            >
               <span className="truncate">{tillName}</span>
             </span>
           )}
@@ -143,7 +164,7 @@ export function PosHeader() {
             <ul
               role="listbox"
               aria-label="Switch branch"
-              className="absolute left-0 top-full z-30 mt-1 min-w-[10rem] overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-slate-800 shadow-lg"
+              className="absolute right-0 top-full z-30 mt-1 min-w-[10rem] overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-slate-800 shadow-lg"
             >
               {accessible.map((branch) => {
                 const selected = branch.id === activeBranch.id;
@@ -173,7 +194,7 @@ export function PosHeader() {
             <ul
               role="listbox"
               aria-label="Switch till"
-              className="absolute left-0 top-full z-30 mt-1 min-w-[10rem] overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-slate-800 shadow-lg sm:left-auto sm:right-0"
+              className="absolute right-0 top-full z-30 mt-1 min-w-[10rem] overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-slate-800 shadow-lg"
             >
               {branchTills.map((till) => {
                 const selected = till.id === activeTillId;
@@ -199,18 +220,9 @@ export function PosHeader() {
             </ul>
           ) : null}
         </div>
+
+        <AppHeaderActions />
       </div>
-
-      <p className="hidden min-w-0 shrink truncate text-sm font-medium tracking-wide text-pos-on-header/90 sm:block">
-        {user?.name ?? "Staff"}
-        {now ? ` · ${formatTillClock(now)}` : ""}
-      </p>
-      <p className="min-w-0 max-w-[7.5rem] shrink truncate text-xs font-medium tracking-wide text-pos-on-header/90 sm:hidden">
-        {user?.name ?? "Staff"}
-        {now ? ` · ${formatTillClock(now)}` : ""}
-      </p>
-
-      <AppHeaderActions />
     </header>
   );
 }

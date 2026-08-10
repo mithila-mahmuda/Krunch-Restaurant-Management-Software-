@@ -1,7 +1,7 @@
 import { localEntityKey } from "@/lib/tenant";
 import type { Product, RecipeIngredient } from "@/lib/types";
 
-/** Seed recipes (local product id → inventory deductions per unit sold). */
+/** Seed recipes (local product id → inventory deductions per unit sent to kitchen). */
 export const PRODUCT_RECIPES: Record<string, RecipeIngredient[]> = {
   "americano-reg": [{ inventoryId: "i1", quantity: 0.018 }],
   "americano-large": [{ inventoryId: "i1", quantity: 0.024 }],

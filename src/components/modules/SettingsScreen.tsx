@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ImagePlus,
   MapPin,
@@ -151,7 +152,17 @@ function PanelHeader({
   );
 }
 
+function parseSettingsSection(
+  value: string | null,
+): SettingsSectionId | null {
+  if (!value) return null;
+  return sections.some((item) => item.id === value)
+    ? (value as SettingsSectionId)
+    : null;
+}
+
 export function SettingsScreen() {
+  const searchParams = useSearchParams();
   const user = useAuthStore((state) => state.user);
   const settings = useSettingsStore();
   const loadDemoSeed = useOpsStore((state) => state.loadDemoSeed);
@@ -161,7 +172,15 @@ export function SettingsScreen() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
 
-  const [section, setSection] = useState<SettingsSectionId>("restaurant");
+  const sectionFromUrl = parseSettingsSection(searchParams.get("section"));
+  const [section, setSection] = useState<SettingsSectionId>(
+    () => sectionFromUrl ?? "restaurant",
+  );
+
+  useEffect(() => {
+    if (sectionFromUrl) setSection(sectionFromUrl);
+  }, [sectionFromUrl]);
+
   const visibleSections = sections.filter((item) => {
     if (item.id === "roles" || item.id === "users") return canManageUsers;
     return true;
@@ -468,17 +487,14 @@ export function SettingsScreen() {
     canEdit && (activeSection === "restaurant" || activeSection === "tax");
 
   return (
-    <ModuleShell title="Settings">
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:items-start lg:gap-5">
+    <ModuleShell
+      title="Settings"
+      secondaryBar={
         <nav
           aria-label="Settings sections"
-          className="rounded-lg border border-slate-200 bg-white p-2 lg:sticky lg:top-[4.75rem]"
+          className="mx-auto w-full max-w-6xl px-3 sm:px-4"
         >
-          <p className="hidden px-2.5 pb-2 pt-1 text-[11px] font-bold uppercase tracking-wide text-slate-400 lg:block">
-            Sections
-          </p>
-
-          <div className="flex gap-1 overflow-x-auto pb-0.5 lg:flex-col lg:overflow-visible lg:pb-0">
+          <div className="flex gap-1 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {visibleSections.map((item) => {
               const Icon = item.icon;
               const selected = activeSection === item.id;
@@ -486,12 +502,13 @@ export function SettingsScreen() {
                 <button
                   key={item.id}
                   type="button"
+                  title={item.hint}
                   onClick={() => setSection(item.id)}
                   aria-current={selected ? "page" : undefined}
-                  className={`flex min-h-11 shrink-0 items-center gap-2.5 rounded-md px-3 text-left transition lg:w-full ${
+                  className={`flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
                     selected
                       ? "bg-[var(--pos-header)] text-pos-on-header"
-                      : "text-slate-700 hover:bg-slate-50"
+                      : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <Icon
@@ -499,25 +516,15 @@ export function SettingsScreen() {
                       selected ? "text-pos-on-header" : "text-slate-500"
                     }`}
                   />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold leading-tight">
-                      {item.label}
-                    </span>
-                    <span
-                      className={`mt-0.5 hidden text-[11px] leading-tight lg:block ${
-                        selected ? "text-pos-on-header/75" : "text-slate-400"
-                      }`}
-                    >
-                      {item.hint}
-                    </span>
-                  </span>
+                  {item.label}
                 </button>
               );
             })}
           </div>
         </nav>
-
-        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
+      }
+    >
+      <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
           {activeSection === "restaurant" ? (
             <div className="space-y-5">
               <PanelHeader
@@ -1140,7 +1147,6 @@ export function SettingsScreen() {
               </button>
             </div>
           ) : null}
-        </div>
       </div>
     </ModuleShell>
   );

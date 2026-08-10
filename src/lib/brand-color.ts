@@ -18,8 +18,6 @@ const BRAND_VARS = [
   "--pos-menu",
   "--pos-canvas",
   "--pos-accent",
-  "--pos-selected",
-  "--pos-selected-deep",
 ] as const;
 
 export function normalizeBrandColor(value: string | null | undefined): string {
@@ -40,14 +38,7 @@ export function applyBrandColor(color: string | null | undefined): void {
   root.setProperty("--pos-canvas", `color-mix(in srgb, ${brand} 58%, white)`);
   root.setProperty("--pos-accent", `color-mix(in srgb, ${brand} 70%, #60a5fa)`);
   // --pos-accent-soft stays in CSS so light/dark modes both derive correctly.
-  root.setProperty(
-    "--pos-selected",
-    `color-mix(in srgb, ${brand} 35%, #22d3ee)`,
-  );
-  root.setProperty(
-    "--pos-selected-deep",
-    `color-mix(in srgb, ${brand} 50%, #0891b2)`,
-  );
+  // --pos-selected tracks --pos-header via globals.css.
 }
 
 /** Drop inline overrides so CSS defaults return (login / sign-out). */
@@ -57,6 +48,9 @@ export function clearBrandColor(): void {
   for (const name of BRAND_VARS) {
     root.removeProperty(name);
   }
+  // Legacy inline selected overrides (older builds).
+  root.removeProperty("--pos-selected");
+  root.removeProperty("--pos-selected-deep");
 }
 
 function rgbToHex(r: number, g: number, b: number): string {

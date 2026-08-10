@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
-import { ALL_BRANCHES_ID, hasAllBranchAccess } from "@/lib/branch-access";
+import Link from "next/link";
+import { Eye, Plus, Trash2 } from "lucide-react";
+import { ALL_BRANCHES_ID } from "@/lib/branch-access";
 import { can } from "@/lib/permissions";
 import type { StaffUser } from "@/lib/staff";
+import { staffAvatarEmoji } from "@/lib/staff-avatar";
+import { UserAvatar } from "@/components/settings/UserAvatar";
 import { useAuthStore } from "@/store/auth-store";
 import { useRolesStore } from "@/store/roles-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useStaffStore, type StaffInput } from "@/store/staff-store";
 
 const cellInputClass =
-  "min-h-9 w-full min-w-[6.5rem] rounded-md border border-transparent bg-transparent px-2 text-sm font-medium text-slate-800 outline-none ring-[var(--pos-accent)] hover:border-slate-200 focus:border-slate-300 focus:bg-white focus:ring-2 disabled:opacity-60";
+  "min-h-9 w-full min-w-[5.5rem] rounded-md border border-transparent bg-transparent px-2 text-sm font-medium text-slate-800 outline-none ring-[var(--pos-accent)] hover:border-slate-200 focus:border-slate-300 focus:bg-white focus:ring-2 disabled:opacity-60";
 
 const cellSelectClass =
   "min-h-9 w-full min-w-[6.5rem] rounded-md border border-slate-200 bg-white px-2 text-sm font-medium text-slate-800 outline-none ring-[var(--pos-accent)] focus:ring-2 disabled:opacity-60";
@@ -27,6 +29,8 @@ function emptyDraft(branchId: string, roleId: string): NewUserDraft {
     role: roleId,
     branchId,
     password: "",
+    avatarDataUrl: null,
+    avatarEmoji: staffAvatarEmoji(`draft-${Date.now()}`),
   };
 }
 
@@ -35,16 +39,13 @@ export function UsersSettingsPanel({
 }: {
   notice?: string;
 }) {
-  const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const signOut = useAuthStore((state) => state.signOut);
   const branches = useSettingsStore((state) => state.branches);
   const staff = useStaffStore((state) => state.staff);
   const createStaff = useStaffStore((state) => state.createStaff);
   const updateStaff = useStaffStore((state) => state.updateStaff);
   const archiveStaff = useStaffStore((state) => state.archiveStaff);
   const roles = useRolesStore((state) => state.roles);
-  const roleName = useRolesStore((state) => state.roleName);
   const activeRoles = roles.filter((role) => !role.archived);
 
   const canManage = can(user?.role, "manage_users");
@@ -91,53 +92,21 @@ export function UsersSettingsPanel({
     setDraft(null);
   }
 
-  function branchName(branchId: string) {
-    if (hasAllBranchAccess(branchId)) return "All branches";
-    return (
-      activeBranches.find((branch) => branch.id === branchId)?.name ??
-      "Unassigned"
-    );
-  }
-
   return (
     <div className="space-y-5">
       <header className="border-b border-slate-100 pb-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight">
-              Users
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Edit cells directly. Role and branch apply immediately; text fields
-              save when you leave the cell.
-            </p>
-            {notice ? (
-              <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                {notice}
-              </p>
-            ) : null}
-          </div>
-          <div className="shrink-0 rounded-md bg-slate-50 px-3 py-2 text-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Signed in
-            </p>
-            <p className="font-semibold">{user?.name ?? "Staff"}</p>
-            <p className="text-xs text-slate-500">
-              {roleName(user?.role)}
-              {user?.branchId ? ` · ${branchName(user.branchId)}` : ""}
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                signOut();
-                router.replace("/login");
-              }}
-              className="mt-2 text-xs font-semibold text-rose-700 hover:underline"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
+        <h2 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight">
+          Users
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Role and branch apply immediately. Open a profile to edit other
+          details.
+        </p>
+        {notice ? (
+          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {notice}
+          </p>
+        ) : null}
       </header>
 
       <div className="flex items-center justify-between gap-3">
@@ -178,7 +147,7 @@ export function UsersSettingsPanel({
                   key={heading || "actions"}
                   scope="col"
                   className={`px-2 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-slate-500 ${
-                    heading === "" ? "w-12" : ""
+                    heading === "" ? "w-24" : ""
                   }`}
                 >
                   {heading || <span className="sr-only">Actions</span>}
@@ -214,15 +183,28 @@ export function UsersSettingsPanel({
             {draft ? (
               <tr className="border-t border-slate-100 bg-[var(--pos-accent-soft)]/40">
                 <td className="px-1 py-1.5">
-                  <input
-                    value={draft.name}
-                    onChange={(event) =>
-                      setDraft({ ...draft, name: event.target.value })
-                    }
-                    placeholder="Name"
-                    className={cellInputClass}
-                    autoFocus
-                  />
+                  <div className="flex min-w-[10rem] items-center gap-2">
+                    <UserAvatar
+                      name={draft.name}
+                      seed="new-user"
+                      avatarDataUrl={draft.avatarDataUrl}
+                      avatarEmoji={draft.avatarEmoji}
+                      canEdit
+                      onChange={(avatarDataUrl) =>
+                        setDraft({ ...draft, avatarDataUrl })
+                      }
+                      onError={setError}
+                    />
+                    <input
+                      value={draft.name}
+                      onChange={(event) =>
+                        setDraft({ ...draft, name: event.target.value })
+                      }
+                      placeholder="Name"
+                      className={cellInputClass}
+                      autoFocus
+                    />
+                  </div>
                 </td>
                 <td className="px-1 py-1.5">
                   <input
@@ -339,65 +321,29 @@ function UserRow({
 
   return (
     <tr className="border-t border-slate-100">
-      <td className="px-1 py-1.5">
-        <div className="flex min-w-[8rem] items-center gap-1">
-          <input
-            key={`${row.id}-name-${row.name}`}
-            defaultValue={row.name}
-            disabled={!canManage}
-            onBlur={(event) => {
-              const next = event.target.value.trim();
-              if (!next || next === row.name) {
-                event.target.value = row.name;
-                return;
-              }
-              onPatch(row.id, { name: next });
-            }}
-            className={cellInputClass}
-            aria-label={`Name for ${row.name}`}
+      <td className="px-3 py-2.5">
+        <div className="flex min-w-[10rem] items-center gap-2">
+          <UserAvatar
+            name={row.name}
+            seed={row.id}
+            avatarDataUrl={row.avatarDataUrl}
+            avatarEmoji={row.avatarEmoji}
           />
-          {isYou ? (
-            <span className="shrink-0 text-[10px] font-bold uppercase text-[var(--pos-header)]">
-              You
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-medium text-slate-800">
+              {row.name}
             </span>
-          ) : null}
+            {isYou ? (
+              <span className="shrink-0 rounded-md bg-[var(--pos-header)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-pos-on-header">
+                You
+              </span>
+            ) : null}
+          </div>
         </div>
       </td>
-      <td className="px-1 py-1.5">
-        <input
-          key={`${row.id}-mobile-${row.mobile}`}
-          defaultValue={row.mobile}
-          disabled={!canManage}
-          onBlur={(event) => {
-            const next = event.target.value.trim();
-            if (!next || next === row.mobile) {
-              event.target.value = row.mobile;
-              return;
-            }
-            onPatch(row.id, { mobile: next });
-          }}
-          inputMode="tel"
-          className={cellInputClass}
-          aria-label={`Mobile for ${row.name}`}
-        />
-      </td>
-      <td className="px-1 py-1.5">
-        <input
-          key={`${row.id}-email-${row.email}`}
-          defaultValue={row.email}
-          disabled={!canManage}
-          onBlur={(event) => {
-            const next = event.target.value.trim();
-            if (!next || next === row.email) {
-              event.target.value = row.email;
-              return;
-            }
-            onPatch(row.id, { email: next });
-          }}
-          type="email"
-          className={cellInputClass}
-          aria-label={`Email for ${row.name}`}
-        />
+      <td className="px-3 py-2.5 text-slate-600">{row.mobile || "—"}</td>
+      <td className="max-w-[14rem] truncate px-3 py-2.5 text-slate-600">
+        {row.email || "—"}
       </td>
       <td className="px-1 py-1.5">
         <select
@@ -432,36 +378,29 @@ function UserRow({
           ))}
         </select>
       </td>
-      <td className="px-1 py-1.5">
-        <input
-          key={`${row.id}-password`}
-          defaultValue=""
-          disabled={!canManage}
-          onBlur={(event) => {
-            const next = event.target.value.trim();
-            if (!next) return;
-            onPatch(row.id, { password: next });
-            event.target.value = "";
-          }}
-          type="password"
-          placeholder="••••••••"
-          className={cellInputClass}
-          aria-label={`New password for ${row.name}`}
-          autoComplete="new-password"
-        />
-      </td>
-      <td className="px-2 py-1.5 text-center">
-        {canManage ? (
-          <button
-            type="button"
-            disabled={isYou}
-            onClick={() => onRemove(row.id)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
-            aria-label={`Remove ${row.name}`}
+      <td className="px-3 py-2.5 tracking-widest text-slate-500">••••••••</td>
+      <td className="px-2 py-1.5">
+        <div className="flex items-center justify-end gap-1.5">
+          <Link
+            href={`/settings/users/${row.id}`}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+            aria-label={`View ${row.name}`}
+            title="View profile"
           >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        ) : null}
+            <Eye className="h-4 w-4" />
+          </Link>
+          {canManage ? (
+            <button
+              type="button"
+              disabled={isYou}
+              onClick={() => onRemove(row.id)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
+              aria-label={`Remove ${row.name}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </td>
     </tr>
   );

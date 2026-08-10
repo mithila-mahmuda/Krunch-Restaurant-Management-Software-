@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatMoney } from "@/lib/format";
+import type { StockShortfall } from "@/lib/inventory-stock";
 import { computeTotals } from "@/lib/order-math";
 import { can } from "@/lib/permissions";
 import { printReceiptText } from "@/lib/print-receipt";
@@ -9,6 +10,36 @@ import { PosDialog } from "@/components/pos/PosDialog";
 import { ReceiptTicket } from "@/components/receipt/ReceiptTicket";
 import { useAuthStore } from "@/store/auth-store";
 import { usePosStore } from "@/store/pos-store";
+
+function StockShortfallTable({ rows }: { rows: StockShortfall[] }) {
+  return (
+    <table className="w-full border-collapse text-left text-sm">
+      <thead>
+        <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+          <th className="py-1.5 pr-2 font-bold">Item</th>
+          <th className="py-1.5 pr-2 text-right font-bold">On hand</th>
+          <th className="py-1.5 text-right font-bold">Ordered</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.productId} className="border-b border-slate-100">
+            <td className="py-2 pr-2 font-semibold text-slate-900">
+              {row.name}
+            </td>
+            <td className="py-2 pr-2 text-right tabular-nums text-slate-700">
+              {row.available}
+              {row.unit ? ` ${row.unit}` : ""}
+            </td>
+            <td className="py-2 text-right font-black tabular-nums text-[#d4a000]">
+              {row.ordered}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 export function ActionButtons() {
   const role = useAuthStore((state) => state.user?.role);
@@ -20,17 +51,21 @@ export function ActionButtons() {
   const fireOrder = usePosStore((state) => state.fireOrder);
   const voidOrder = usePosStore((state) => state.voidOrder);
   const completePayment = usePosStore((state) => state.completePayment);
+  const getStockShortfalls = usePosStore((state) => state.getStockShortfalls);
   const setStatusMessage = usePosStore((state) => state.setStatusMessage);
   const customerName = usePosStore((state) => state.customerName);
   const tableLabel = usePosStore((state) => state.tableLabel);
 
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmVoid, setConfirmVoid] = useState(false);
+  const [confirmFire, setConfirmFire] = useState(false);
+  const [fireShortfalls, setFireShortfalls] = useState<StockShortfall[]>([]);
   const [payOpen, setPayOpen] = useState(false);
   const [method, setMethod] = useState<"cash" | "card">("card");
   const [amountPaid, setAmountPaid] = useState("");
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState("");
+  const [payShortfalls, setPayShortfalls] = useState<StockShortfall[]>([]);
 
   const totals = computeTotals(lines, serviceEnabled);
   const hasItems = lines.length > 0;
@@ -43,7 +78,25 @@ export function ActionButtons() {
     return Math.max(0, Math.round((amount - totals.due) * 100) / 100);
   }, [amountPaid, totals.due]);
 
+  function sendToKitchen() {
+    const result = fireOrder();
+    if (!result.ok) setStatusMessage(result.error, "warning");
+    setConfirmFire(false);
+    setFireShortfalls([]);
+  }
+
+  function requestSendKitchen() {
+    const shortfalls = getStockShortfalls();
+    if (shortfalls.length > 0) {
+      setFireShortfalls(shortfalls);
+      setConfirmFire(true);
+      return;
+    }
+    sendToKitchen();
+  }
+
   function openPay() {
+    setPayShortfalls(getStockShortfalls());
     setMethod("card");
     setAmountPaid(totals.due.toFixed(2));
     setError("");
@@ -84,10 +137,7 @@ export function ActionButtons() {
         <button
           type="button"
           disabled={!hasItems}
-          onClick={() => {
-            const result = fireOrder();
-            if (!result.ok) setStatusMessage(result.error);
-          }}
+          onClick={requestSendKitchen}
           className="min-h-10 rounded-md bg-amber-600 text-[11px] font-bold uppercase leading-tight tracking-wide text-white transition hover:brightness-110 enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Send
@@ -158,7 +208,7 @@ export function ActionButtons() {
                 const result = voidOrder();
                 setConfirmVoid(false);
                 if (!result.ok) {
-                  setStatusMessage(result.error);
+                  setStatusMessage(result.error, "warning");
                   return;
                 }
                 setStatusMessage("Order voided");
@@ -176,6 +226,41 @@ export function ActionButtons() {
             : "Cancels this ticket and records it as voided. No need to hold first."}{" "}
           This cannot be undone.
         </p>
+      </PosDialog>
+
+      <PosDialog
+        open={confirmFire}
+        title="Insufficient stock"
+        onClose={() => {
+          setConfirmFire(false);
+          setFireShortfalls([]);
+        }}
+        footer={
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmFire(false);
+                setFireShortfalls([]);
+              }}
+              className="min-h-11 rounded-md border border-slate-300 text-sm font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={sendToKitchen}
+              className="min-h-11 rounded-md bg-[var(--pos-header)] text-sm font-semibold text-pos-on-header"
+            >
+              Continue
+            </button>
+          </div>
+        }
+      >
+        <p className="mb-3 text-sm text-slate-600">
+          Ordered quantity exceeds on-hand stock. Continue to send to kitchen?
+        </p>
+        <StockShortfallTable rows={fireShortfalls} />
       </PosDialog>
 
       <PosDialog
@@ -282,6 +367,15 @@ export function ActionButtons() {
               <p className="text-sm font-semibold text-emerald-700">
                 Change {formatMoney(change)}
               </p>
+            ) : null}
+
+            {payShortfalls.length > 0 ? (
+              <div className="rounded-md border border-slate-200 px-3 py-2">
+                <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-[#d4a000]">
+                  Insufficient stock
+                </p>
+                <StockShortfallTable rows={payShortfalls} />
+              </div>
             ) : null}
 
             {error ? <p className="text-sm text-rose-600">{error}</p> : null}

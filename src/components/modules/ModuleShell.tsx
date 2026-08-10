@@ -12,6 +12,11 @@ interface ModuleShellProps {
   /** Shown immediately after the title (e.g. assigned branch chip). */
   titleAddon?: ReactNode;
   actions?: ReactNode;
+  /** Sticky strip below the primary header (e.g. section tabs). */
+  secondaryBar?: ReactNode;
+  /** Override the header back link (defaults to POS). */
+  backHref?: string;
+  backLabel?: string;
   /** Drop the centered max-width for full-bleed module layouts. */
   wide?: boolean;
   children: ReactNode;
@@ -21,6 +26,9 @@ export function ModuleShell({
   title,
   titleAddon,
   actions,
+  secondaryBar,
+  backHref = "/pos",
+  backLabel = "Back to POS",
   wide = false,
   children,
 }: ModuleShellProps) {
@@ -43,8 +51,8 @@ export function ModuleShell({
             <Menu className="h-5 w-5" />
           </button>
           <Link
-            href="/pos"
-            aria-label="Back to POS"
+            href={backHref}
+            aria-label={backLabel}
             className="app-header-btn"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -57,11 +65,18 @@ export function ModuleShell({
               <div className="shrink-0">{titleAddon}</div>
             ) : null}
           </div>
-          <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
-            {actions}
+          <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end">
+            {actions ? (
+              <div className="app-header-cluster">{actions}</div>
+            ) : null}
             <AppHeaderActions />
           </div>
         </div>
+        {secondaryBar ? (
+          <div className="border-b border-slate-200 bg-white text-slate-900">
+            {secondaryBar}
+          </div>
+        ) : null}
       </header>
 
       <main

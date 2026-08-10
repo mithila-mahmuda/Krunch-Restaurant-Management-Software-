@@ -129,11 +129,10 @@ export function NavDrawer() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setNavOpen(false)}
-                className={`flex min-h-12 items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition ${
-                  active
+                className={`flex min-h-12 items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition ${active
                     ? "bg-[var(--pos-header-deep)] text-pos-on-header"
                     : "text-pos-on-header/90 hover:bg-pos-on-header/10"
-                }`}
+                  }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 <span className="truncate">{link.label}</span>

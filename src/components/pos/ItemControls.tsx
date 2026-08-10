@@ -107,24 +107,24 @@ export function SelectedLineToolbar({ line }: { line: OrderLine }) {
             <button
               type="button"
               onClick={() => updateQuantity(line.id, -1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--pos-selected-deep)] text-white transition hover:bg-white hover:text-[var(--pos-selected)] active:scale-95"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--pos-selected-deep)] text-pos-on-selected transition hover:bg-white hover:text-[var(--pos-selected)] active:scale-95"
               aria-label="Decrease quantity"
             >
               <Minus className="h-4 w-4" strokeWidth={2.5} />
             </button>
-            <span className="flex h-8 w-8 items-center justify-center rounded bg-[var(--pos-selected-deep)] text-base font-bold text-white">
+            <span className="flex h-8 w-8 items-center justify-center rounded bg-[var(--pos-selected-deep)] text-base font-bold text-pos-on-selected">
               {line.quantity}
             </span>
             <button
               type="button"
               onClick={() => updateQuantity(line.id, 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--pos-selected-deep)] text-white transition hover:bg-white hover:text-[var(--pos-selected)] active:scale-95"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--pos-selected-deep)] text-pos-on-selected transition hover:bg-white hover:text-[var(--pos-selected)] active:scale-95"
               aria-label="Increase quantity"
             >
               <Plus className="h-4 w-4" strokeWidth={2.5} />
             </button>
           </div>
-          <span className="text-[10px] font-bold uppercase tracking-wide text-white/95">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-pos-on-selected/90">
             Quantity
           </span>
         </div>
@@ -309,14 +309,14 @@ function ToolbarAction({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-12 flex-col items-center gap-1 text-white transition active:scale-95"
+      className="group flex w-12 flex-col items-center gap-1 text-pos-on-selected transition active:scale-95"
       aria-label={label}
     >
       <span
         className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
           active
-            ? "bg-[#fff] text-[var(--pos-selected)]"
-            : "bg-[var(--pos-selected-deep)] text-white group-hover:bg-white group-hover:text-[var(--pos-selected)]"
+            ? "bg-white text-[var(--pos-selected)]"
+            : "bg-[var(--pos-selected-deep)] text-pos-on-selected group-hover:bg-white group-hover:text-[var(--pos-selected)]"
         }`}
       >
         {children}
