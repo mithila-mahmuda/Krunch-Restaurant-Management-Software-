@@ -16,7 +16,7 @@ import {
   UtensilsCrossed,
   X,
 } from "lucide-react";
-import { navPagesForRole } from "@/lib/nav";
+import { navSectionsForRole } from "@/lib/nav";
 import { useAuthStore } from "@/store/auth-store";
 import { usePosStore } from "@/store/pos-store";
 import { useRolesStore } from "@/store/roles-store";
@@ -51,9 +51,12 @@ export function NavDrawer() {
     restaurantName.trim() ||
     user?.restaurantName?.trim() ||
     "Krunch";
-  const links = navPagesForRole(user?.role).map((page) => ({
-    ...page,
-    icon: linkIcons[page.href as keyof typeof linkIcons],
+  const sections = navSectionsForRole(user?.role).map((section) => ({
+    ...section,
+    pages: section.pages.map((page) => ({
+      ...page,
+      icon: linkIcons[page.href as keyof typeof linkIcons],
+    })),
   }));
 
   useEffect(() => {
@@ -119,26 +122,39 @@ export function NavDrawer() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-auto overscroll-contain p-3">
-          {links.map((link) => {
-            const Icon = link.icon;
-            const active =
-              pathname === link.href || pathname.startsWith(`${link.href}/`);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setNavOpen(false)}
-                className={`flex min-h-12 items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition ${active
-                    ? "bg-[var(--pos-header-deep)] text-pos-on-header"
-                    : "text-pos-on-header/90 hover:bg-pos-on-header/10"
-                  }`}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className="truncate">{link.label}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-auto overscroll-contain p-3">
+          <div className="space-y-4">
+            {sections.map((section) => (
+              <div key={section.id}>
+                <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-pos-on-header/45">
+                  {section.label}
+                </p>
+                <div className="space-y-1">
+                  {section.pages.map((link) => {
+                    const Icon = link.icon;
+                    const active =
+                      pathname === link.href ||
+                      pathname.startsWith(`${link.href}/`);
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setNavOpen(false)}
+                        className={`flex min-h-12 items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition ${
+                          active
+                            ? "bg-[var(--pos-header-deep)] text-pos-on-header"
+                            : "text-pos-on-header/90 hover:bg-pos-on-header/10"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5 shrink-0" />
+                        <span className="truncate">{link.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </nav>
 
         <div className="shrink-0 border-t border-pos-on-header/10 p-3">
