@@ -60,6 +60,12 @@ export const PAGE_ACCESS_OPTIONS: PageAccessOption[] = [
     linked: ["adjust_inventory"],
   },
   {
+    permission: "access_purchases",
+    label: "Item Purchase",
+    description: "Buy stock from suppliers",
+    linked: ["adjust_inventory"],
+  },
+  {
     permission: "access_reports",
     label: "Reports",
     description: "Sales and cash insights",
@@ -111,6 +117,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "access_customers",
   "access_menu",
   "access_inventory",
+  "access_purchases",
   "access_reports",
   "access_settings",
   "void_order",
@@ -134,6 +141,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     "access_customers",
     "access_menu",
     "access_inventory",
+    "access_purchases",
     "access_reports",
     "access_settings",
     "void_order",
@@ -151,6 +159,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     "access_tables",
     "access_customers",
     "access_inventory",
+    "access_purchases",
     "access_reports",
     "void_order",
     "apply_discount",
@@ -254,6 +263,21 @@ export function migrateRolesTowardAdmin(
       permissions: role.permissions.filter(
         (permission) => permission !== "manage_users",
       ),
+    };
+  });
+
+  // Grant Item Purchase to roles that already manage inventory stock.
+  next = next.map((role) => {
+    if (
+      !role.permissions.includes("access_inventory") ||
+      role.permissions.includes("access_purchases")
+    ) {
+      return role;
+    }
+    changed = true;
+    return {
+      ...role,
+      permissions: [...role.permissions, "access_purchases"],
     };
   });
 

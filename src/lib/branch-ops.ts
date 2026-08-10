@@ -37,26 +37,45 @@ const TABLE_TEMPLATE: Omit<FloorTable, "branchId">[] = [
   { id: "b4", label: "B4", seats: 1, zone: "Bar", status: "free" },
 ];
 
-const INVENTORY_TEMPLATE: Omit<InventoryItem, "branchId">[] = [
-  { id: "i1", name: "Espresso beans", unit: "kg", onHand: 4.2, parLevel: 5, category: "Hot Drinks" },
-  { id: "i2", name: "Whole milk", unit: "L", onHand: 18, parLevel: 20, category: "Hot Drinks" },
-  { id: "i3", name: "Oat milk", unit: "L", onHand: 6, parLevel: 10, category: "Hot Drinks" },
-  { id: "i4", name: "Burger patties", unit: "pcs", onHand: 42, parLevel: 40, category: "Mains" },
-  { id: "i5", name: "Fries (frozen)", unit: "kg", onHand: 8, parLevel: 12, category: "Sides" },
-  { id: "i6", name: "Cod fillets", unit: "pcs", onHand: 9, parLevel: 15, category: "Mains" },
-  { id: "i7", name: "Lemonade syrup", unit: "L", onHand: 3.5, parLevel: 5, category: "Cold Drinks" },
-  { id: "i8", name: "Brioche buns", unit: "pcs", onHand: 24, parLevel: 30, category: "Mains" },
-  { id: "i9", name: "Cheesecake", unit: "slices", onHand: 3, parLevel: 8, category: "Desserts" },
-  { id: "i10", name: "Cola syrup", unit: "L", onHand: 2.5, parLevel: 4, category: "Cold Drinks" },
-];
+/** Legacy demo catalog keys — no longer seeded; stripped on hydrate. */
+const SEED_INVENTORY_CATALOG_KEYS = new Set([
+  "i1",
+  "i2",
+  "i3",
+  "i4",
+  "i5",
+  "i6",
+  "i7",
+  "i8",
+  "i9",
+  "i10",
+]);
 
-/** Ingredient picker options for menu recipe editing (catalog keys). */
-export function inventoryIngredientOptions(): {
+export function isSeedInventoryCatalogKey(catalogKey: string): boolean {
+  return SEED_INVENTORY_CATALOG_KEYS.has(inventoryCatalogKey(catalogKey));
+}
+
+/**
+ * Ingredient picker options for menu recipe editing.
+ * Uses live inventory (purchase stock-in); ids are catalog keys shared across branches.
+ */
+export function inventoryIngredientOptions(
+  inventory: InventoryItem[],
+): {
   id: string;
   name: string;
   unit: string;
 }[] {
-  return INVENTORY_TEMPLATE.map(({ id, name, unit }) => ({ id, name, unit }));
+  const byCatalog = new Map<string, { id: string; name: string; unit: string }>();
+  for (const item of inventory) {
+    const id = inventoryCatalogKey(item.id);
+    if (isSeedInventoryCatalogKey(id)) continue;
+    if (byCatalog.has(id)) continue;
+    byCatalog.set(id, { id, name: item.name, unit: item.unit });
+  }
+  return [...byCatalog.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
 }
 
 export function tablesForBranch(branchId: string): FloorTable[] {
@@ -72,20 +91,17 @@ export function tablesForBranch(branchId: string): FloorTable[] {
   }));
 }
 
-export function inventoryForBranch(branchId: string): InventoryItem[] {
-  return INVENTORY_TEMPLATE.map((item) => ({
-    ...item,
-    id: scopedInventoryId(branchId, item.id),
-    branchId,
-  }));
+/** Inventory is purchase-driven; no template rows. */
+export function inventoryForBranch(_branchId: string): InventoryItem[] {
+  return [];
 }
 
 export function tablesForBranches(branchIds: string[]): FloorTable[] {
   return branchIds.flatMap((branchId) => tablesForBranch(branchId));
 }
 
-export function inventoryForBranches(branchIds: string[]): InventoryItem[] {
-  return branchIds.flatMap((branchId) => inventoryForBranch(branchId));
+export function inventoryForBranches(_branchIds: string[]): InventoryItem[] {
+  return [];
 }
 
 /** Default branch for migrating unscoped legacy rows. */
@@ -149,6 +165,11 @@ export function normalizeInventory(
 
   for (const item of inventory) {
     const catalog = inventoryCatalogKey(item.id);
+    // Drop legacy demo ingredients — stock comes from Item Purchase only.
+    if (isSeedInventoryCatalogKey(catalog)) {
+      changed = true;
+      continue;
+    }
     const branchId =
       item.branchId && branchIds.includes(item.branchId)
         ? item.branchId
@@ -156,16 +177,6 @@ export function normalizeInventory(
     const id = scopedInventoryId(branchId, catalog);
     if (item.id !== id || item.branchId !== branchId) changed = true;
     byId.set(id, { ...item, id, branchId });
-  }
-
-  for (const branchId of branchIds) {
-    for (const template of INVENTORY_TEMPLATE) {
-      const id = scopedInventoryId(branchId, template.id);
-      if (!byId.has(id)) {
-        changed = true;
-        byId.set(id, { ...template, id, branchId });
-      }
-    }
   }
 
   return { inventory: [...byId.values()], changed };

@@ -485,6 +485,18 @@ html.dark .bg-white\/95 {
   color: #171717;
 }
 
+/* Hide native stepper arrows on number inputs. */
+input[type="number"].no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"].no-spinner::-webkit-inner-spin-button,
+input[type="number"].no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Floating dialogs: raised surface + edge so they don’t melt into the page */
 .pos-dialog-backdrop {
   background: var(--dialog-scrim);

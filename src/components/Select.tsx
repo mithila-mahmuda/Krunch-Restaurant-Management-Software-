@@ -216,7 +216,7 @@ export function Select({
         onKeyDown={onTriggerKeyDown}
         className={`flex w-full items-center gap-1.5 rounded-md border bg-white text-left text-sm font-medium text-slate-800 transition outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
           compact
-            ? "min-h-9 min-w-[6.5rem] border-slate-200 px-2.5"
+            ? "min-h-9 min-w-0 border-slate-200 px-2"
             : "min-h-10 border-slate-300 px-3"
         } ${
           open

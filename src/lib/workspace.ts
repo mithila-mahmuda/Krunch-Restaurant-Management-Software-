@@ -17,6 +17,7 @@ import { useCatalogStore } from "@/store/catalog-store";
 import { useCustomerStore } from "@/store/customer-store";
 import { useOpsStore } from "@/store/ops-store";
 import { usePosStore } from "@/store/pos-store";
+import { usePurchaseStore } from "@/store/purchase-store";
 import { useRolesStore } from "@/store/roles-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useStaffStore } from "@/store/staff-store";
@@ -100,6 +101,7 @@ export async function loadRestaurantWorkspace(
   await useCatalogStore.getState().hydrateForRestaurant(restaurantId);
   await useCustomerStore.getState().hydrateForRestaurant(restaurantId);
   await useOpsStore.getState().hydrateForRestaurant(restaurantId);
+  await usePurchaseStore.getState().hydrateForRestaurant(restaurantId);
   usePosStore.getState().applyServiceDefault();
 }
 
@@ -118,6 +120,12 @@ export async function clearRestaurantWorkspace(): Promise<void> {
   });
   useCustomerStore.setState({ restaurantId: null, hydrated: false });
   useOpsStore.setState({ restaurantId: null, hydrated: false });
+  usePurchaseStore.setState({
+    restaurantId: null,
+    suppliers: [],
+    purchases: [],
+    hydrated: false,
+  });
 }
 
 /** Resolve which restaurant a signed-in user belongs to. */

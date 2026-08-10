@@ -496,19 +496,8 @@ export const INITIAL_CUSTOMERS: CustomerRecord[] = [
   },
 ];
 
-/** Legacy single-branch stock — ops normalizes to all branches on hydrate. */
-export const INITIAL_INVENTORY: InventoryItem[] = [
-  { id: `${D}:i1`, branchId: D, name: "Espresso beans", unit: "kg", onHand: 4.2, parLevel: 5, category: "Hot Drinks" },
-  { id: `${D}:i2`, branchId: D, name: "Whole milk", unit: "L", onHand: 18, parLevel: 20, category: "Hot Drinks" },
-  { id: `${D}:i3`, branchId: D, name: "Oat milk", unit: "L", onHand: 6, parLevel: 10, category: "Hot Drinks" },
-  { id: `${D}:i4`, branchId: D, name: "Burger patties", unit: "pcs", onHand: 42, parLevel: 40, category: "Mains" },
-  { id: `${D}:i5`, branchId: D, name: "Fries (frozen)", unit: "kg", onHand: 8, parLevel: 12, category: "Sides" },
-  { id: `${D}:i6`, branchId: D, name: "Cod fillets", unit: "pcs", onHand: 9, parLevel: 15, category: "Mains" },
-  { id: `${D}:i7`, branchId: D, name: "Lemonade syrup", unit: "L", onHand: 3.5, parLevel: 5, category: "Cold Drinks" },
-  { id: `${D}:i8`, branchId: D, name: "Brioche buns", unit: "pcs", onHand: 24, parLevel: 30, category: "Mains" },
-  { id: `${D}:i9`, branchId: D, name: "Cheesecake", unit: "slices", onHand: 3, parLevel: 8, category: "Desserts" },
-  { id: `${D}:i10`, branchId: D, name: "Cola syrup", unit: "L", onHand: 2.5, parLevel: 4, category: "Cold Drinks" },
-];
+/** Legacy export — inventory is purchase-driven; kept empty for compatibility. */
+export const INITIAL_INVENTORY: InventoryItem[] = [];
 
 export const REPORT_SUMMARY = {
   dateLabel: "Today",

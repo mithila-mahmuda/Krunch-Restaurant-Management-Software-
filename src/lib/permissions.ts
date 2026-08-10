@@ -12,6 +12,7 @@ export type Permission =
   | "access_customers"
   | "access_menu"
   | "access_inventory"
+  | "access_purchases"
   | "access_reports"
   | "access_settings"
   | "void_order"
@@ -32,6 +33,7 @@ export const PATH_PERMISSIONS: Record<string, Permission> = {
   "/customers": "access_customers",
   "/menu": "access_menu",
   "/inventory": "access_inventory",
+  "/item-purchase": "access_purchases",
   "/reports": "access_reports",
   "/settings/users": "manage_users",
   "/settings": "access_settings",
@@ -98,6 +100,7 @@ export function homePathForRole(roleId: RoleId | undefined | null): string {
     "/customers",
     "/reports",
     "/inventory",
+    "/item-purchase",
     "/menu",
     "/settings",
   ] as const;

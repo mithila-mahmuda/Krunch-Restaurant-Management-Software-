@@ -16,6 +16,7 @@ import type {
   FloorTable,
   InventoryItem,
 } from "@/lib/module-data";
+import type { PurchaseEntry, Supplier } from "@/lib/purchases";
 import { DEMO_RESTAURANT_ID } from "@/lib/tenant";
 import type { CashDrawerEvent, Category, OpsOrder, Product } from "@/lib/types";
 import {
@@ -299,6 +300,58 @@ export async function saveCustomers(
     STORES.customers,
     restaurantId,
     customers.map((row) => ({ ...row, restaurantId })),
+    DEMO_RESTAURANT_ID,
+  );
+}
+
+export async function loadSuppliers(
+  restaurantId: string,
+): Promise<Supplier[]> {
+  const db = await getLocalDb();
+  return getTenantAll<Supplier>(
+    db,
+    STORES.suppliers,
+    restaurantId,
+    DEMO_RESTAURANT_ID,
+  );
+}
+
+export async function saveSuppliers(
+  restaurantId: string,
+  suppliers: Supplier[],
+): Promise<void> {
+  const db = await getLocalDb();
+  await putTenantAll(
+    db,
+    STORES.suppliers,
+    restaurantId,
+    suppliers.map((row) => ({ ...row, restaurantId })),
+    DEMO_RESTAURANT_ID,
+  );
+}
+
+export async function loadPurchases(
+  restaurantId: string,
+): Promise<PurchaseEntry[]> {
+  const db = await getLocalDb();
+  return getTenantAll<PurchaseEntry>(
+    db,
+    STORES.purchases,
+    restaurantId,
+    DEMO_RESTAURANT_ID,
+  );
+}
+
+export async function savePurchases(
+  restaurantId: string,
+  purchases: PurchaseEntry[],
+): Promise<void> {
+  const db = await getLocalDb();
+  await putTenantAll(
+    db,
+    STORES.purchases,
+    restaurantId,
+    purchases.map((row) => ({ ...row, restaurantId })),
     DEMO_RESTAURANT_ID,
   );
 }

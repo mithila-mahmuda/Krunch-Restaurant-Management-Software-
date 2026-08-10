@@ -4,9 +4,9 @@ import { create } from "zustand";
 import {
   demoBranchForServer,
   inventoryCatalogKey,
-  inventoryForBranches,
   normalizeInventory,
   normalizeTables,
+  scopedInventoryId,
   scopedTableId,
   tablesForBranches,
 } from "@/lib/branch-ops";
@@ -158,6 +158,21 @@ interface OpsState extends OpsPersisted {
     itemId: string,
     patch: { onHand: number; unit: string },
   ) => void;
+  /** Stock-in from a vendor purchase — matches or creates inventory rows. */
+  receivePurchaseStock: (input: {
+    branchId: string;
+    lines: Array<{
+      name: string;
+      quantity: number;
+      unit: string;
+      inventoryItemId?: string;
+    }>;
+  }) =>
+    | {
+        ok: true;
+        lines: Array<{ inventoryItemId: string; name: string }>;
+      }
+    | { ok: false; error: string };
   recordNoSale: (
     reason?: string,
   ) => { ok: true; event: CashDrawerEvent } | { ok: false; error: string };
@@ -542,7 +557,8 @@ function defaultState(): OpsPersisted {
   return {
     orders: [],
     tables: tablesForBranches(branchIds),
-    inventory: inventoryForBranches(branchIds),
+    // Inventory is filled only via Item Purchase stock-in.
+    inventory: [],
     nextOrderNumber: 1100,
     floatAmount: 150,
     cashEvents: [],
@@ -614,7 +630,6 @@ export const useOpsStore = create<OpsState>((set, get) => ({
     // New restaurants start empty; demo keeps sample orders when unset.
     const seedOrders = isDemo ? base.orders : [];
     const seedTables = isDemo ? base.tables : [];
-    const seedInventory = isDemo ? base.inventory : [];
     const rawOrders = (stored?.orders ?? seedOrders).map((order) => ({
       ...order,
       kitchenStartedAt: resolveKitchenStartedAt(order),
@@ -634,7 +649,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
       branchIds,
     );
     const normalizedInventory = normalizeInventory(
-      stored?.inventory?.length ? stored.inventory : seedInventory,
+      stored?.inventory ?? [],
       branchIds,
     );
     const remappedOrders = orders.map((order) => {
@@ -657,7 +672,7 @@ export const useOpsStore = create<OpsState>((set, get) => ({
       hydrated: true,
     });
 
-    // Seed empty DB with default floor/inventory tables so RDS-shaped rows exist.
+    // Seed empty DB with default floor tables so RDS-shaped rows exist.
     if (
       !stored ||
       changed ||
@@ -1418,6 +1433,91 @@ export const useOpsStore = create<OpsState>((set, get) => ({
       }),
     }));
     get().persist();
+  },
+
+  receivePurchaseStock: (input) => {
+    const denied = assertCan(
+      useAuthStore.getState().user?.role,
+      "adjust_inventory",
+    );
+    if (!denied.ok) return denied;
+
+    const branchId = input.branchId.trim();
+    if (!branchId) return { ok: false, error: "Choose a branch." };
+
+    const restaurantId = get().restaurantId ?? DEMO_RESTAURANT_ID;
+    const resolved: Array<{ inventoryItemId: string; name: string }> = [];
+    let inventory = [...get().inventory];
+
+    for (let index = 0; index < input.lines.length; index += 1) {
+      const line = input.lines[index]!;
+      const name = line.name.trim();
+      const unit = line.unit.trim();
+      const quantity = Math.round(Number(line.quantity) * 1000) / 1000;
+      if (!name) return { ok: false, error: "Each line needs an item name." };
+      if (!unit) return { ok: false, error: `Choose a unit for ${name}.` };
+      if (!(quantity > 0) || !Number.isFinite(quantity)) {
+        return { ok: false, error: `Enter a valid quantity for ${name}.` };
+      }
+
+      const byId =
+        line.inventoryItemId &&
+        inventory.find(
+          (item) =>
+            item.id === line.inventoryItemId && item.branchId === branchId,
+        );
+      const byName =
+        byId ??
+        inventory.find(
+          (item) =>
+            item.branchId === branchId &&
+            item.name.toLowerCase() === name.toLowerCase(),
+        );
+
+      if (byName) {
+        inventory = inventory.map((item) => {
+          if (item.id !== byName.id) {
+            if (
+              inventoryCatalogKey(item.id) ===
+                inventoryCatalogKey(byName.id) &&
+              item.unit !== unit
+            ) {
+              return { ...item, unit };
+            }
+            return item;
+          }
+          return {
+            ...item,
+            name,
+            unit,
+            onHand: Math.round((item.onHand + quantity) * 1000) / 1000,
+          };
+        });
+        resolved.push({ inventoryItemId: byName.id, name });
+        continue;
+      }
+
+      const catalogKey = `buy_${Date.now().toString(36)}_${index}_${Math.random()
+        .toString(36)
+        .slice(2, 7)}`;
+      const id = scopedInventoryId(branchId, catalogKey);
+      const created: InventoryItem = {
+        id,
+        restaurantId,
+        branchId,
+        name,
+        unit,
+        onHand: quantity,
+        parLevel: quantity,
+        category: "Purchased",
+      };
+      inventory = [...inventory, created];
+      resolved.push({ inventoryItemId: id, name });
+    }
+
+    set({ inventory });
+    get().persist();
+    return { ok: true, lines: resolved };
   },
 
   recordNoSale: (reason) => {

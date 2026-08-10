@@ -12,6 +12,7 @@ import {
   LogOut,
   Package,
   Settings,
+  ShoppingCart,
   Users,
   UtensilsCrossed,
   X,
@@ -30,6 +31,7 @@ const linkIcons = {
   "/customers": Users,
   "/menu": Package,
   "/inventory": Boxes,
+  "/item-purchase": ShoppingCart,
   "/reports": BarChart3,
   "/settings": Settings,
 } as const;

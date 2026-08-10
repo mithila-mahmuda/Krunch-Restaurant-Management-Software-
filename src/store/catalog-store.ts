@@ -22,7 +22,10 @@ import {
   products as seedProducts,
 } from "@/lib/mock-data";
 import { assertCan } from "@/lib/permissions";
-import { seedRecipeForProductId } from "@/lib/recipes";
+import {
+  seedRecipeForProductId,
+  withoutSeedInventoryRecipeSteps,
+} from "@/lib/recipes";
 import {
   DEMO_RESTAURANT_ID,
   localEntityKey,
@@ -113,17 +116,19 @@ function normalizeRecipe(
   recipe: RecipeIngredient[] | undefined,
 ): RecipeIngredient[] | undefined {
   if (recipe === undefined) return undefined;
-  return recipe
-    .map((step) => ({
-      inventoryId: step.inventoryId.trim(),
-      quantity: Number(step.quantity),
-    }))
-    .filter(
-      (step) =>
-        step.inventoryId.length > 0 &&
-        Number.isFinite(step.quantity) &&
-        step.quantity > 0,
-    );
+  return withoutSeedInventoryRecipeSteps(
+    recipe
+      .map((step) => ({
+        inventoryId: step.inventoryId.trim(),
+        quantity: Number(step.quantity),
+      }))
+      .filter(
+        (step) =>
+          step.inventoryId.length > 0 &&
+          Number.isFinite(step.quantity) &&
+          step.quantity > 0,
+      ),
+  );
 }
 
 function withHydratedRecipe(
@@ -137,7 +142,8 @@ function withHydratedRecipe(
     };
   }
   const seeded = seedRecipeForProductId(product.id, restaurantId);
-  return seeded ? { ...product, recipe: seeded } : product;
+  // Persist an explicit recipe list so hydrate does not keep rewriting.
+  return { ...product, recipe: seeded ?? [] };
 }
 
 function seedCatalog(restaurantId: string): Product[] {
@@ -356,10 +362,16 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
           resolveCategoryColor(category),
       ) ||
       storedCategories.some((category) => category.sortOrder == null);
+    const recipesStrippedSeedInventory = products.some((product, index) => {
+      const before = rawProducts[index]?.recipe;
+      if (!before || !product.recipe) return false;
+      return before.length !== product.recipe.length;
+    });
     const needsProductPersist =
       reseed ||
       storedProducts.length === 0 ||
       storedProducts.some((product) => product.sortOrder == null) ||
+      recipesStrippedSeedInventory ||
       (!reseed &&
         storedProducts.some((product) => product.recipe === undefined));
     set({

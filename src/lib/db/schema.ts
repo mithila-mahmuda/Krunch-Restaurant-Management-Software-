@@ -3,7 +3,7 @@
  * Orders keep line items nested for simplicity; split to `order_lines` in Postgres.
  */
 export const DB_NAME = "krunch";
-export const DB_VERSION = 6;
+export const DB_VERSION = 7;
 
 export const STORES = {
   meta: "meta",
@@ -19,6 +19,8 @@ export const STORES = {
   cash_events: "cash_events",
   staff_users: "staff_users",
   app_roles: "app_roles",
+  suppliers: "suppliers",
+  purchases: "purchases",
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];

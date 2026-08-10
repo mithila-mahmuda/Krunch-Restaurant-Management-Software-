@@ -1,47 +1,12 @@
+import { isSeedInventoryCatalogKey } from "@/lib/branch-ops";
 import { localEntityKey } from "@/lib/tenant";
 import type { Product, RecipeIngredient } from "@/lib/types";
 
-/** Seed recipes (local product id → inventory deductions per unit sent to kitchen). */
-export const PRODUCT_RECIPES: Record<string, RecipeIngredient[]> = {
-  "americano-reg": [{ inventoryId: "i1", quantity: 0.018 }],
-  "americano-large": [{ inventoryId: "i1", quantity: 0.024 }],
-  "latte-reg": [
-    { inventoryId: "i1", quantity: 0.018 },
-    { inventoryId: "i2", quantity: 0.2 },
-  ],
-  "latte-large": [
-    { inventoryId: "i1", quantity: 0.024 },
-    { inventoryId: "i2", quantity: 0.28 },
-  ],
-  "cappuccino-reg": [
-    { inventoryId: "i1", quantity: 0.018 },
-    { inventoryId: "i2", quantity: 0.15 },
-  ],
-  "cappuccino-large": [
-    { inventoryId: "i1", quantity: 0.024 },
-    { inventoryId: "i2", quantity: 0.2 },
-  ],
-  "chicken-burger": [
-    { inventoryId: "i4", quantity: 1 },
-    { inventoryId: "i8", quantity: 1 },
-  ],
-  "beef-burger": [
-    { inventoryId: "i4", quantity: 1 },
-    { inventoryId: "i8", quantity: 1 },
-  ],
-  fries: [{ inventoryId: "i5", quantity: 0.2 }],
-  "french-fries-reg": [{ inventoryId: "i5", quantity: 0.2 }],
-  "french-fries-large": [{ inventoryId: "i5", quantity: 0.3 }],
-  "fish-chips": [
-    { inventoryId: "i6", quantity: 1 },
-    { inventoryId: "i5", quantity: 0.25 },
-  ],
-  cola: [{ inventoryId: "i10", quantity: 0.05 }],
-  cheesecake: [{ inventoryId: "i9", quantity: 1 }],
-  "classic-bubble": [{ inventoryId: "i3", quantity: 0.2 }],
-  "taro-bubble": [{ inventoryId: "i3", quantity: 0.2 }],
-  "brown-sugar-bubble": [{ inventoryId: "i3", quantity: 0.2 }],
-};
+/**
+ * Seed recipes used to point at demo inventory (i1–i10).
+ * Inventory is purchase-only now, so demo products start with no recipe links.
+ */
+export const PRODUCT_RECIPES: Record<string, RecipeIngredient[]> = {};
 
 export function seedRecipeForProductId(
   productId: string,
@@ -56,12 +21,22 @@ export function seedRecipeForProductId(
   return recipe ? recipe.map((step) => ({ ...step })) : undefined;
 }
 
+/** Drop recipe steps that still reference removed demo inventory keys. */
+export function withoutSeedInventoryRecipeSteps(
+  recipe: RecipeIngredient[] | undefined,
+): RecipeIngredient[] | undefined {
+  if (recipe === undefined) return undefined;
+  return recipe.filter(
+    (step) => !isSeedInventoryCatalogKey(step.inventoryId),
+  );
+}
+
 export function resolveProductRecipe(
   product: Pick<Product, "id" | "restaurantId" | "recipe"> | undefined,
   productId: string,
 ): RecipeIngredient[] {
   if (product && product.recipe !== undefined) {
-    return product.recipe;
+    return withoutSeedInventoryRecipeSteps(product.recipe) ?? [];
   }
   return (
     seedRecipeForProductId(productId, product?.restaurantId) ??
@@ -78,11 +53,13 @@ export function recipeDeductionsForLines(
   const totals = new Map<string, number>();
 
   for (const line of lines) {
-    const recipe = resolveProductRecipe(byId.get(line.productId), line.productId);
+    const product = byId.get(line.productId);
+    const recipe = resolveProductRecipe(product, line.productId);
     for (const step of recipe) {
+      const qty = step.quantity * line.quantity;
       totals.set(
         step.inventoryId,
-        (totals.get(step.inventoryId) ?? 0) + step.quantity * line.quantity,
+        (totals.get(step.inventoryId) ?? 0) + qty,
       );
     }
   }

@@ -170,7 +170,7 @@ export function InventoryScreen() {
     ? "No items match that search."
     : lowOnly
       ? "Everything is at or above target."
-      : "No inventory items for the selected branches.";
+      : "No purchased stock yet. Record a purchase to add items.";
 
   function openEditor(item: InventoryItem) {
     setEditingId(item.id);

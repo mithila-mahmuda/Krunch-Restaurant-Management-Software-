@@ -6,20 +6,26 @@ import { X } from "lucide-react";
 interface PosDialogProps {
   open: boolean;
   title: string;
+  /** Secondary line under the title (e.g. reference id). */
+  subtitle?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
   /** Shown to the left of the close control in the header. */
   headerActions?: ReactNode;
+  /** Override default max width (`max-w-md`). */
+  className?: string;
 }
 
 export function PosDialog({
   open,
   title,
+  subtitle,
   onClose,
   children,
   footer,
   headerActions,
+  className = "",
 }: PosDialogProps) {
   const titleId = useId();
 
@@ -51,21 +57,26 @@ export function PosDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="pos-dialog relative z-10 flex max-h-[min(92dvh,820px)] w-full max-w-md flex-col overflow-hidden rounded-xl"
+        className={`pos-dialog relative z-10 flex max-h-[min(92dvh,820px)] w-full flex-col overflow-hidden rounded-xl ${className || "max-w-md"}`}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-          <h2
-            id={titleId}
-            className="min-w-0 flex-1 font-[family-name:var(--font-display)] text-lg font-bold"
-          >
-            {title}
-          </h2>
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <h2
+              id={titleId}
+              className="font-[family-name:var(--font-display)] text-lg font-bold"
+            >
+              {title}
+            </h2>
+            {subtitle ? (
+              <div className="mt-0.5 text-sm text-slate-500">{subtitle}</div>
+            ) : null}
+          </div>
           <div className="flex shrink-0 items-center gap-1">
             {headerActions}
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-md hover:bg-slate-100"
+              className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100"
               aria-label="Close"
             >
               <X className="h-5 w-5" />

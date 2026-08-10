@@ -107,11 +107,12 @@ export function sellableUnitsForProduct(
   for (const step of recipe) {
     if (!(step.quantity > 0)) continue;
     const item = matchInventoryItem(inventory, branchId, step.inventoryId);
-    const onHand = item?.onHand ?? 0;
-    const units = Math.floor((onHand + 1e-9) / step.quantity);
+    // Ingredient not in stock yet (purchase-only inventory) — don't constrain.
+    if (!item) continue;
+    const units = Math.floor((item.onHand + 1e-9) / step.quantity);
     if (units < maxUnits) {
       maxUnits = units;
-      limitingUnit = item?.unit ?? "";
+      limitingUnit = item.unit;
     }
   }
 

@@ -31,10 +31,9 @@ import { PosDialog } from "@/components/pos/PosDialog";
 import { useTileReorder } from "@/hooks/useTileReorder";
 import { useAuthStore } from "@/store/auth-store";
 import { useCatalogStore } from "@/store/catalog-store";
+import { useOpsStore } from "@/store/ops-store";
 
 type RecipeFormRow = { inventoryId: string; quantity: string };
-
-const INGREDIENT_OPTIONS = inventoryIngredientOptions();
 
 const fieldClass =
   "mt-1 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none ring-[var(--pos-accent)] focus:ring-2";
@@ -42,6 +41,11 @@ const fieldClass =
 export function MenuManagerScreen() {
   const categories = useCatalogStore((state) => state.categories);
   const products = useCatalogStore((state) => state.products);
+  const inventory = useOpsStore((state) => state.inventory);
+  const ingredientOptions = useMemo(
+    () => inventoryIngredientOptions(inventory),
+    [inventory],
+  );
   const toggleAvailability = useCatalogStore(
     (state) => state.toggleAvailability,
   );
@@ -274,10 +278,14 @@ export function MenuManagerScreen() {
     );
     setProductImageDataUrl(product.imageDataUrl ?? null);
     setRecipeRows(
-      (product.recipe ?? []).map((step) => ({
-        inventoryId: step.inventoryId,
-        quantity: String(step.quantity),
-      })),
+      (product.recipe ?? [])
+        .filter((step) =>
+          ingredientOptions.some((option) => option.id === step.inventoryId),
+        )
+        .map((step) => ({
+          inventoryId: step.inventoryId,
+          quantity: String(step.quantity),
+        })),
     );
     setProductEditorOpen(true);
   }
@@ -1068,86 +1076,99 @@ export function MenuManagerScreen() {
               Ingredients
             </legend>
             <p className="mt-1 text-xs text-slate-500">
-              Amounts used from inventory each time this item is sold.
+              Amounts used from purchased inventory each time this item is sold.
             </p>
-            <div className="mt-2 space-y-2">
-              {recipeRows.map((row, index) => {
-                const unit =
-                  INGREDIENT_OPTIONS.find(
-                    (option) => option.id === row.inventoryId,
-                  )?.unit ?? "";
-                return (
-                  <div
-                    key={`recipe-${index}`}
-                    className="grid grid-cols-[1fr_5.5rem_auto] gap-2"
-                  >
-                    <select
-                      value={row.inventoryId}
-                      onChange={(event) => {
-                        const inventoryId = event.target.value;
-                        setRecipeRows((rows) =>
-                          rows.map((item, rowIndex) =>
-                            rowIndex === index
-                              ? { ...item, inventoryId }
-                              : item,
-                          ),
-                        );
-                      }}
-                      className={fieldClass}
-                    >
-                      {INGREDIENT_OPTIONS.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      value={row.quantity}
-                      onChange={(event) => {
-                        const quantity = event.target.value;
-                        setRecipeRows((rows) =>
-                          rows.map((item, rowIndex) =>
-                            rowIndex === index ? { ...item, quantity } : item,
-                          ),
-                        );
-                      }}
-                      inputMode="decimal"
-                      aria-label={`Quantity in ${unit || "units"}`}
-                      placeholder={unit || "Qty"}
-                      className={fieldClass}
-                    />
-                    <button
-                      type="button"
-                      aria-label="Remove ingredient"
-                      onClick={() =>
-                        setRecipeRows((rows) =>
-                          rows.filter((_, rowIndex) => rowIndex !== index),
-                        )
-                      }
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                setRecipeRows((rows) => [
-                  ...rows,
-                  {
-                    inventoryId: INGREDIENT_OPTIONS[0]?.id ?? "i1",
-                    quantity: "1",
-                  },
-                ])
-              }
-              className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add ingredient
-            </button>
+            {ingredientOptions.length === 0 ? (
+              <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                No purchased stock yet. Record items in Item Purchase first,
+                then link them here.
+              </p>
+            ) : (
+              <>
+                <div className="mt-2 space-y-2">
+                  {recipeRows.map((row, index) => {
+                    const unit =
+                      ingredientOptions.find(
+                        (option) => option.id === row.inventoryId,
+                      )?.unit ?? "";
+                    return (
+                      <div
+                        key={`recipe-${index}`}
+                        className="grid grid-cols-[1fr_5.5rem_auto] gap-2"
+                      >
+                        <select
+                          value={row.inventoryId}
+                          onChange={(event) => {
+                            const inventoryId = event.target.value;
+                            setRecipeRows((rows) =>
+                              rows.map((item, rowIndex) =>
+                                rowIndex === index
+                                  ? { ...item, inventoryId }
+                                  : item,
+                              ),
+                            );
+                          }}
+                          className={fieldClass}
+                        >
+                          {ingredientOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={row.quantity}
+                          onChange={(event) => {
+                            const quantity = event.target.value;
+                            setRecipeRows((rows) =>
+                              rows.map((item, rowIndex) =>
+                                rowIndex === index
+                                  ? { ...item, quantity }
+                                  : item,
+                              ),
+                            );
+                          }}
+                          inputMode="decimal"
+                          aria-label={`Quantity in ${unit || "units"}`}
+                          placeholder={unit || "Qty"}
+                          className={fieldClass}
+                        />
+                        <button
+                          type="button"
+                          aria-label="Remove ingredient"
+                          onClick={() =>
+                            setRecipeRows((rows) =>
+                              rows.filter((_, rowIndex) => rowIndex !== index),
+                            )
+                          }
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const first = ingredientOptions[0];
+                    if (!first) return;
+                    setRecipeRows((rows) => [
+                      ...rows,
+                      {
+                        inventoryId: first.id,
+                        quantity: "1",
+                      },
+                    ]);
+                  }}
+                  className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add ingredient
+                </button>
+              </>
+            )}
           </fieldset>
 
           {productError ? (

@@ -77,6 +77,22 @@ export const NAV_PAGES: NavPage[] = [
     section: "management",
   },
   {
+    href: "/item-purchase",
+    label: "Item Purchase",
+    keywords: [
+      "purchase",
+      "purchase entry",
+      "supplier",
+      "suppliers",
+      "vendor",
+      "stock in",
+      "buy",
+      "procurement",
+    ],
+    permission: PATH_PERMISSIONS["/item-purchase"]!,
+    section: "management",
+  },
+  {
     href: "/reports",
     label: "Reports",
     keywords: ["analytics", "sales", "revenue"],
