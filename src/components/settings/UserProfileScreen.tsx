@@ -6,18 +6,12 @@ import { useParams, useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { ALL_BRANCHES_ID, hasAllBranchAccess } from "@/lib/branch-access";
 import { can } from "@/lib/permissions";
-import {
-  STAFF_AVATAR_EMOJIS,
-  resolveStaffAvatarEmoji,
-} from "@/lib/staff-avatar";
 import { ModuleShell } from "@/components/modules/ModuleShell";
 import { UserAvatar } from "@/components/settings/UserAvatar";
 import { useAuthStore } from "@/store/auth-store";
 import { useRolesStore } from "@/store/roles-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useStaffStore } from "@/store/staff-store";
-
-const emojiChoices = [...STAFF_AVATAR_EMOJIS];
 
 const fieldClass =
   "mt-1 min-h-11 w-full rounded-md border border-slate-300 px-3 text-sm font-medium outline-none ring-[var(--pos-accent)] focus:ring-2 disabled:opacity-60";
@@ -54,7 +48,6 @@ export function UserProfileScreen() {
   const [branchId, setBranchId] = useState("");
   const [password, setPassword] = useState("");
   const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
-  const [avatarEmoji, setAvatarEmoji] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -66,7 +59,6 @@ export function UserProfileScreen() {
     setRole(profile.role);
     setBranchId(profile.branchId);
     setAvatarDataUrl(profile.avatarDataUrl ?? null);
-    setAvatarEmoji(resolveStaffAvatarEmoji(profile.id, profile.avatarEmoji));
     setPassword("");
     setError("");
     setEditing(false);
@@ -88,7 +80,6 @@ export function UserProfileScreen() {
     setRole(profile.role);
     setBranchId(profile.branchId);
     setAvatarDataUrl(profile.avatarDataUrl ?? null);
-    setAvatarEmoji(resolveStaffAvatarEmoji(profile.id, profile.avatarEmoji));
     setPassword("");
     setError("");
     setSaved(false);
@@ -103,23 +94,9 @@ export function UserProfileScreen() {
     setRole(profile.role);
     setBranchId(profile.branchId);
     setAvatarDataUrl(profile.avatarDataUrl ?? null);
-    setAvatarEmoji(resolveStaffAvatarEmoji(profile.id, profile.avatarEmoji));
     setPassword("");
     setError("");
     setEditing(false);
-  }
-
-  function saveEmoji(next: string) {
-    if (!profile || !canManage) return;
-    setError("");
-    setAvatarEmoji(next);
-    setAvatarDataUrl(null);
-    if (editing) return;
-    const result = updateStaff(profile.id, {
-      avatarEmoji: next,
-      avatarDataUrl: null,
-    });
-    if (!result.ok) setError(result.error);
   }
 
   function saveProfile() {
@@ -133,7 +110,6 @@ export function UserProfileScreen() {
       branchId,
       password: password.trim() ? password : profile.password,
       avatarDataUrl,
-      avatarEmoji,
     });
     if (!result.ok) {
       setError(result.error);
@@ -210,7 +186,7 @@ export function UserProfileScreen() {
               name={editing ? name : profile.name}
               seed={profile.id}
               avatarDataUrl={editing ? avatarDataUrl : profile.avatarDataUrl}
-              avatarEmoji={editing ? avatarEmoji : profile.avatarEmoji}
+              avatarEmoji={profile.avatarEmoji}
               canEdit={canManage}
               size="lg"
               onChange={(next) => {
@@ -245,36 +221,6 @@ export function UserProfileScreen() {
                     : branchLabel(profile.branchId)}
                 </span>
               </div>
-              {canManage ? (
-                <div className="mt-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Emoji avatar
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {emojiChoices.map((emoji) => {
-                      const selected =
-                        (editing ? avatarEmoji : profile.avatarEmoji) ===
-                        emoji;
-                      return (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => saveEmoji(emoji)}
-                          aria-pressed={selected}
-                          className={`flex h-9 w-9 items-center justify-center rounded-md text-lg transition ${
-                            selected
-                              ? "bg-[var(--pos-header)] ring-2 ring-[var(--pos-header)] ring-offset-2"
-                              : "bg-slate-100 hover:bg-slate-200"
-                          }`}
-                          title={`Use ${emoji}`}
-                        >
-                          <span aria-hidden>{emoji}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
             </div>
           </div>
 

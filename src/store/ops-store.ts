@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import {
   demoBranchForServer,
+  inventoryCatalogKey,
   inventoryForBranches,
   normalizeInventory,
   normalizeTables,
@@ -152,6 +153,11 @@ interface OpsState extends OpsPersisted {
     tableLabel: string | null,
   ) => void;
   adjustInventory: (itemId: string, delta: number) => void;
+  setInventoryOnHand: (itemId: string, onHand: number) => void;
+  updateInventoryStock: (
+    itemId: string,
+    patch: { onHand: number; unit: string },
+  ) => void;
   recordNoSale: (
     reason?: string,
   ) => { ok: true; event: CashDrawerEvent } | { ok: false; error: string };
@@ -1371,6 +1377,45 @@ export const useOpsStore = create<OpsState>((set, get) => ({
           }
           : item,
       ),
+    }));
+    get().persist();
+  },
+
+  setInventoryOnHand: (itemId, onHand) => {
+    get().updateInventoryStock(itemId, {
+      onHand,
+      unit:
+        get().inventory.find((item) => item.id === itemId)?.unit ?? "pcs",
+    });
+  },
+
+  updateInventoryStock: (itemId, patch) => {
+    const denied = assertCan(
+      useAuthStore.getState().user?.role,
+      "adjust_inventory",
+    );
+    if (!denied.ok) return;
+
+    const nextOnHand = Math.max(0, Math.round(patch.onHand * 1000) / 1000);
+    if (!Number.isFinite(nextOnHand)) return;
+
+    const nextUnit = patch.unit.trim();
+    if (!nextUnit) return;
+
+    const catalogKey = inventoryCatalogKey(itemId);
+
+    set((state) => ({
+      inventory: state.inventory.map((item) => {
+        const sameCatalog = inventoryCatalogKey(item.id) === catalogKey;
+        if (item.id === itemId) {
+          return { ...item, onHand: nextOnHand, unit: nextUnit };
+        }
+        // Keep unit consistent for the same ingredient across branches.
+        if (sameCatalog) {
+          return { ...item, unit: nextUnit };
+        }
+        return item;
+      }),
     }));
     get().persist();
   },

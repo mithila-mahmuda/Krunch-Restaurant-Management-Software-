@@ -7,6 +7,7 @@ import { ALL_BRANCHES_ID } from "@/lib/branch-access";
 import { can } from "@/lib/permissions";
 import type { StaffUser } from "@/lib/staff";
 import { staffAvatarEmoji } from "@/lib/staff-avatar";
+import { Select } from "@/components/Select";
 import { UserAvatar } from "@/components/settings/UserAvatar";
 import { useAuthStore } from "@/store/auth-store";
 import { useRolesStore } from "@/store/roles-store";
@@ -15,9 +16,6 @@ import { useStaffStore, type StaffInput } from "@/store/staff-store";
 
 const cellInputClass =
   "min-h-9 w-full min-w-[5.5rem] rounded-md border border-transparent bg-transparent px-2 text-sm font-medium text-slate-800 outline-none ring-[var(--pos-accent)] hover:border-slate-200 focus:border-slate-300 focus:bg-white focus:ring-2 disabled:opacity-60";
-
-const cellSelectClass =
-  "min-h-9 w-full min-w-[6.5rem] rounded-md border border-slate-200 bg-white px-2 text-sm font-medium text-slate-800 outline-none ring-[var(--pos-accent)] focus:ring-2 disabled:opacity-60";
 
 type NewUserDraft = StaffInput;
 
@@ -229,35 +227,31 @@ export function UsersSettingsPanel({
                   />
                 </td>
                 <td className="px-1 py-1.5">
-                  <select
+                  <Select
+                    compact
+                    aria-label="Role for new user"
                     value={draft.role}
-                    onChange={(event) =>
-                      setDraft({ ...draft, role: event.target.value })
-                    }
-                    className={cellSelectClass}
-                  >
-                    {activeRoles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(role) => setDraft({ ...draft, role })}
+                    options={activeRoles.map((role) => ({
+                      value: role.id,
+                      label: role.name,
+                    }))}
+                  />
                 </td>
                 <td className="px-1 py-1.5">
-                  <select
+                  <Select
+                    compact
+                    aria-label="Branch for new user"
                     value={draft.branchId}
-                    onChange={(event) =>
-                      setDraft({ ...draft, branchId: event.target.value })
-                    }
-                    className={cellSelectClass}
-                  >
-                    <option value={ALL_BRANCHES_ID}>All branches</option>
-                    {activeBranches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(branchId) => setDraft({ ...draft, branchId })}
+                    options={[
+                      { value: ALL_BRANCHES_ID, label: "All branches" },
+                      ...activeBranches.map((branch) => ({
+                        value: branch.id,
+                        label: branch.name,
+                      })),
+                    ]}
+                  />
                 </td>
                 <td className="px-1 py-1.5">
                   <input
@@ -346,37 +340,33 @@ function UserRow({
         {row.email || "—"}
       </td>
       <td className="px-1 py-1.5">
-        <select
+        <Select
+          compact
+          aria-label={`Role for ${row.name}`}
           value={row.role}
           disabled={!canManage}
-          onChange={(event) => onPatch(row.id, { role: event.target.value })}
-          className={cellSelectClass}
-          aria-label={`Role for ${row.name}`}
-        >
-          {roleOptions.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.name}
-            </option>
-          ))}
-        </select>
+          onChange={(role) => onPatch(row.id, { role })}
+          options={roleOptions.map((role) => ({
+            value: role.id,
+            label: role.name,
+          }))}
+        />
       </td>
       <td className="px-1 py-1.5">
-        <select
+        <Select
+          compact
+          aria-label={`Branch for ${row.name}`}
           value={row.branchId}
           disabled={!canManage}
-          onChange={(event) =>
-            onPatch(row.id, { branchId: event.target.value })
-          }
-          className={cellSelectClass}
-          aria-label={`Branch for ${row.name}`}
-        >
-          <option value={ALL_BRANCHES_ID}>All branches</option>
-          {activeBranches.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {branch.name}
-            </option>
-          ))}
-        </select>
+          onChange={(branchId) => onPatch(row.id, { branchId })}
+          options={[
+            { value: ALL_BRANCHES_ID, label: "All branches" },
+            ...activeBranches.map((branch) => ({
+              value: branch.id,
+              label: branch.name,
+            })),
+          ]}
+        />
       </td>
       <td className="px-3 py-2.5 tracking-widest text-slate-500">••••••••</td>
       <td className="px-2 py-1.5">

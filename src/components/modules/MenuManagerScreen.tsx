@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Ban,
   Check,
@@ -193,14 +193,36 @@ export function MenuManagerScreen() {
       );
   }, [previewProducts, productReorder.displayIds]);
 
+  const hasAppliedDefaultCategory = useRef(false);
+
   useEffect(() => {
-    if (
-      previewCategoryId &&
-      !categories.some((category) => category.id === previewCategoryId)
-    ) {
-      setPreviewCategoryId(null);
+    if (sortedCategories.length === 0) {
+      hasAppliedDefaultCategory.current = false;
+      if (previewCategoryId !== null) setPreviewCategoryId(null);
+      return;
     }
-  }, [categories, previewCategoryId]);
+
+    const selectionIsValid =
+      previewCategoryId !== null &&
+      sortedCategories.some((category) => category.id === previewCategoryId);
+
+    if (selectionIsValid) {
+      hasAppliedDefaultCategory.current = true;
+      return;
+    }
+
+    // Deleted or missing selection → fall back to the first category.
+    if (previewCategoryId !== null) {
+      setPreviewCategoryId(sortedCategories[0].id);
+      return;
+    }
+
+    // First load: open the first category so its items are visible.
+    if (!hasAppliedDefaultCategory.current) {
+      hasAppliedDefaultCategory.current = true;
+      setPreviewCategoryId(sortedCategories[0].id);
+    }
+  }, [previewCategoryId, sortedCategories]);
 
   function resetProductForm() {
     setProductError("");
@@ -457,7 +479,10 @@ export function MenuManagerScreen() {
       return;
     }
     if (previewCategoryId === categoryId) {
-      setPreviewCategoryId(null);
+      const nextCategory = sortedCategories.find(
+        (category) => category.id !== categoryId,
+      );
+      setPreviewCategoryId(nextCategory?.id ?? null);
     }
     setDeleteCategoryId(null);
     setEditingCategoryId(null);

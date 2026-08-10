@@ -48,10 +48,10 @@ const AVATAR_TONES = [
 ] as const;
 
 const emojiSizeClass = {
-  xs: "text-sm leading-none",
-  sm: "text-base leading-none",
-  md: "text-xl leading-none",
-  lg: "text-4xl leading-none",
+  xs: "text-lg leading-none",
+  sm: "text-2xl leading-none",
+  md: "text-3xl leading-none",
+  lg: "text-6xl leading-none",
 } as const;
 
 export function staffInitials(name: string): string {
